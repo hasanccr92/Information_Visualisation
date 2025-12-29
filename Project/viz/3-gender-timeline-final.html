@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Gender Representation Across Rating Thresholds Over Time</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* Dark theme (default) */
+            --bg-gradient-1: #1a1a2e;
+            --bg-gradient-2: #16213e;
+            --bg-gradient-3: #0f3460;
+            --text-primary: #f8fafc;
+            --text-secondary: #e2e8f0;
+            --text-muted: #94a3b8;
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --panel-bg: rgba(0, 0, 0, 0.2);
+            --panel-border: rgba(255, 255, 255, 0.05);
+            --input-bg: rgba(0, 0, 0, 0.2);
+            --input-border: rgba(255, 255, 255, 0.1);
+            --hover-bg: rgba(255, 255, 255, 0.05);
+            --axis-color: rgba(148, 163, 184, 0.2);
+            --tooltip-bg: rgba(15, 23, 42, 0.95);
+            --shadow-color: rgba(0, 0, 0, 0.2);
+        }
+
+        [data-theme="light"] {
+            --bg-gradient-1: #f8fafc;
+            --bg-gradient-2: #e2e8f0;
+            --bg-gradient-3: #cbd5e1;
+            --text-primary: #1e293b;
+            --text-secondary: #334155;
+            --text-muted: #64748b;
+            --card-bg: rgba(255, 255, 255, 0.8);
+            --card-border: rgba(0, 0, 0, 0.1);
+            --panel-bg: rgba(255, 255, 255, 0.9);
+            --panel-border: rgba(0, 0, 0, 0.08);
+            --input-bg: rgba(255, 255, 255, 0.9);
+            --input-border: rgba(0, 0, 0, 0.15);
+            --hover-bg: rgba(0, 0, 0, 0.05);
+            --axis-color: rgba(100, 116, 139, 0.3);
+            --tooltip-bg: rgba(255, 255, 255, 0.95);
+            --shadow-color: rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 30px 50px;
+            background: linear-gradient(135deg, var(--bg-gradient-1) 0%, var(--bg-gradient-2) 50%, var(--bg-gradient-3) 100%);
+            min-height: 100vh;
+            color: var(--text-secondary);
+            transition: all 0.3s ease;
+        }
+
+        .header {
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .header-content {
+            flex: 1;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 0 0 8px 0;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            font-size: 15px;
+            color: var(--text-muted);
+            font-weight: 400;
+            margin-bottom: 0;
+        }
+
+        /* Theme Toggle */
+        .theme-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            padding: 10px 16px;
+            border-radius: 12px;
+            border: 1px solid var(--card-border);
+        }
+
+        .theme-toggle-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        .theme-switch {
+            position: relative;
+            width: 56px;
+            height: 28px;
+        }
+
+        .theme-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .theme-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            transition: 0.3s;
+            border-radius: 28px;
+        }
+
+        .theme-slider:before {
+            position: absolute;
+            content: "🌙";
+            font-size: 14px;
+            height: 22px;
+            width: 22px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .theme-switch input:checked+.theme-slider {
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        }
+
+        .theme-switch input:checked+.theme-slider:before {
+            transform: translateX(28px);
+            content: "☀️";
+        }
+
+        /* Controls Bar */
+        .controls {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            padding: 20px 25px;
+            border-radius: 16px;
+            border: 1px solid var(--card-border);
+            box-shadow: 0 8px 32px var(--shadow-color);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 25px;
+        }
+
+        .play-button {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.35);
+        }
+
+        .play-button:hover {
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.45);
+        }
+
+        .play-button:active {
+            transform: translateY(0);
+        }
+
+        .timeline-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .year-display {
+            background: var(--panel-bg);
+            border: 1px solid var(--input-border);
+            padding: 12px 20px;
+            border-radius: 12px;
+            min-width: 120px;
+            text-align: center;
+        }
+
+        .year-label {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-primary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Custom Slider */
+        .timeline-slider {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 8px;
+            border-radius: 4px;
+            background: var(--input-border);
+            outline: none;
+            cursor: pointer;
+        }
+
+        .timeline-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            cursor: pointer;
+            border: 3px solid white;
+            box-shadow: 0 2px 10px rgba(59, 130, 246, 0.5);
+            transition: all 0.2s ease;
+        }
+
+        .timeline-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.7);
+        }
+
+        .timeline-slider::-moz-range-thumb {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            cursor: pointer;
+            border: 3px solid white;
+            box-shadow: 0 2px 10px rgba(59, 130, 246, 0.5);
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 4px;
+            background: var(--input-bg);
+            padding: 4px;
+            border-radius: 10px;
+        }
+
+        .toggle-btn {
+            padding: 10px 18px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-btn.active {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            box-shadow: 0 2px 10px rgba(59, 130, 246, 0.3);
+        }
+
+        .toggle-btn:hover:not(.active) {
+            background: var(--hover-bg);
+            color: var(--text-secondary);
+        }
+
+        /* Speed Control */
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .speed-select {
+            padding: 8px 12px;
+            border-radius: 8px;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            outline: none;
+        }
+
+        /* Category Selection */
+        .category-selection {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            padding: 18px 25px;
+            border-radius: 16px;
+            border: 1px solid var(--card-border);
+            box-shadow: 0 8px 32px var(--shadow-color);
+            margin-bottom: 20px;
+        }
+
+        .category-selection-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .category-selection-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .category-mode-dropdown {
+            padding: 8px 15px;
+            border-radius: 8px;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .category-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .category-btn {
+            padding: 10px 18px;
+            border: 1px solid var(--input-border);
+            background: var(--card-bg);
+            color: var(--text-secondary);
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .category-btn:hover {
+            background: var(--hover-bg);
+            border-color: var(--text-muted);
+        }
+
+        .category-btn.selected {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border-color: #3b82f6;
+            color: white;
+            box-shadow: 0 2px 10px rgba(59, 130, 246, 0.3);
+        }
+
+        /* Selection Info Banner */
+        .selection-info {
+            background: linear-gradient(135deg, rgba(234, 179, 8, 0.15) 0%, rgba(217, 119, 6, 0.15) 100%);
+            border: 1px solid rgba(234, 179, 8, 0.3);
+            padding: 12px 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #d97706;
+            text-align: center;
+            display: none;
+        }
+
+        [data-theme="dark"] .selection-info {
+            color: #fbbf24;
+        }
+
+        .reset-selection {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .reset-selection:hover {
+            background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+            box-shadow: 0 2px 10px rgba(239, 68, 68, 0.3);
+        }
+
+        /* Chart Container */
+        .chart-container {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            padding: 30px;
+            border-radius: 20px;
+            border: 1px solid var(--card-border);
+            box-shadow: 0 8px 32px var(--shadow-color);
+        }
+
+        #charts {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            justify-items: center;
+        }
+
+        .threshold-panel {
+            background: var(--panel-bg);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid var(--panel-border);
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .threshold-panel:hover {
+            border-color: rgba(59, 130, 246, 0.3);
+            box-shadow: 0 0 30px rgba(59, 130, 246, 0.1);
+        }
+
+        .threshold-panel.hidden {
+            opacity: 0.15;
+            pointer-events: none;
+            filter: grayscale(100%);
+        }
+
+        .threshold-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-align: center;
+            margin-bottom: 15px;
+            padding: 12px 15px;
+            background: var(--hover-bg);
+            border-radius: 10px;
+            white-space: pre-line;
+            line-height: 1.4;
+        }
+
+        .threshold-title .skill-level {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 400;
+            display: block;
+            margin-top: 2px;
+        }
+
+        /* Axis Styling */
+        .axis path,
+        .axis line {
+            stroke: var(--axis-color);
+            shape-rendering: crispEdges;
+        }
+
+        .axis text {
+            fill: var(--text-muted);
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .axis-label {
+            font-size: 12px;
+            font-weight: 600;
+            fill: var(--text-muted);
+        }
+
+        /* Area Charts */
+        .area {
+            stroke-width: 0;
+        }
+
+        .area-male {
+            fill: url(#maleGradient);
+            fill-opacity: 0.9;
+        }
+
+        .area-female {
+            fill: url(#femaleGradient);
+            fill-opacity: 0.9;
+        }
+
+        .hover-line {
+            stroke: var(--text-primary);
+            stroke-width: 2;
+            stroke-dasharray: 4, 4;
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: fixed;
+            padding: 16px 20px;
+            background: var(--tooltip-bg);
+            backdrop-filter: blur(20px);
+            color: var(--text-primary);
+            border-radius: 12px;
+            pointer-events: none;
+            font-size: 13px;
+            line-height: 1.6;
+            box-shadow: 0 10px 40px var(--shadow-color);
+            z-index: 1000;
+            border: 1px solid var(--card-border);
+        }
+
+        .tooltip-title {
+            font-weight: 700;
+            font-size: 14px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid var(--axis-color);
+            padding-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .tooltip-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            gap: 20px;
+        }
+
+        .tooltip-row span:first-child {
+            color: var(--text-muted);
+        }
+
+        .tooltip-row span:last-child {
+            font-weight: 600;
+        }
+
+        /* Legend */
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid var(--axis-color);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            padding: 8px 16px;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+        }
+
+        .legend-item:hover {
+            background: var(--hover-bg);
+            border-color: var(--panel-border);
+        }
+
+        .legend-item.dimmed {
+            opacity: 0.4;
+        }
+
+        .legend-color {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px var(--shadow-color);
+        }
+
+        .legend-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        /* Summary Stats */
+        .summary-stats {
+            background: var(--panel-bg);
+            padding: 20px 30px;
+            border-radius: 16px;
+            margin-top: 25px;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            border: 1px solid var(--panel-border);
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 15px 30px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            min-width: 150px;
+            border: 1px solid var(--panel-border);
+            transition: all 0.3s ease;
+        }
+
+        .stat-item:hover {
+            background: var(--hover-bg);
+            border-color: var(--input-border);
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 6px;
+            font-weight: 500;
+        }
+
+        /* Loading State */
+        .loading {
+            text-align: center;
+            padding: 100px;
+            font-size: 18px;
+            color: var(--text-muted);
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(59, 130, 246, 0.2);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Keyboard hint */
+        .keyboard-hint {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--tooltip-bg);
+            backdrop-filter: blur(10px);
+            padding: 12px 18px;
+            border-radius: 10px;
+            font-size: 12px;
+            color: var(--text-muted);
+            border: 1px solid var(--card-border);
+            display: flex;
+            gap: 15px;
+        }
+
+        .keyboard-hint kbd {
+            background: var(--hover-bg);
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 11px;
+            color: var(--text-secondary);
+            border: 1px solid var(--input-border);
+        }
+    </style>
+</head>
+
+<body data-theme="dark">
+
+    <div class="header">
+        <div class="header-content">
+            <h1>⏳ Gender Representation Across Rating Thresholds</h1>
+            <p class="subtitle">Exploring how female and male participation has evolved across different skill levels in
+                competitive chess from 2015-2025</p>
+        </div>
+        <div class="theme-toggle">
+            <span class="theme-toggle-label">Theme</span>
+            <label class="theme-switch">
+                <input type="checkbox" id="themeToggle">
+                <span class="theme-slider"></span>
+            </label>
+        </div>
+    </div>
+
+    <div class="loading" id="loading">
+        <div class="loading-spinner"></div>
+        Loading chess player data...
+    </div>
+
+    <div id="visualization" style="display: none;">
+        <div class="controls">
+            <button class="play-button" id="playBtn">
+                <span id="playIcon">▶</span>
+                <span id="playText">Play</span>
+            </button>
+
+            <div class="timeline-container">
+                <div class="year-display">
+                    <span class="year-label" id="yearLabel">2015-02</span>
+                </div>
+                <input type="range" class="timeline-slider" id="timeSlider" min="0" max="100" value="0" step="1">
+            </div>
+
+            <div class="speed-control">
+                <span>Speed:</span>
+                <select class="speed-select" id="speedSelect">
+                    <option value="1000">0.5x</option>
+                    <option value="500" selected>1x</option>
+                    <option value="250">2x</option>
+                    <option value="100">5x</option>
+                </select>
+            </div>
+
+            <div class="view-toggle">
+                <button class="toggle-btn active" id="absoluteBtn">Absolute</button>
+                <button class="toggle-btn" id="percentBtn">Percentage</button>
+            </div>
+        </div>
+
+        <div class="category-selection">
+            <div class="category-selection-header">
+                <span class="category-selection-label">Filter Categories:</span>
+                <select class="category-mode-dropdown" id="categoryModeDropdown">
+                    <option value="show-except">Hide Selected</option>
+                    <option value="only-show">Show Only Selected</option>
+                </select>
+            </div>
+            <div class="category-buttons" id="categoryButtons">
+                <!-- Category buttons will be generated here -->
+            </div>
+        </div>
+
+        <div class="selection-info" id="selectionInfo"></div>
+
+        <div class="chart-container">
+            <!-- SVG Gradient Definitions -->
+            <svg width="0" height="0" style="position: absolute;">
+                <defs>
+                    <linearGradient id="maleGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" style="stop-color:#60a5fa;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:0.8" />
+                    </linearGradient>
+                    <linearGradient id="femaleGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" style="stop-color:#f87171;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#ef4444;stop-opacity:0.8" />
+                    </linearGradient>
+                </defs>
+            </svg>
+
+            <div id="charts"></div>
+
+            <div class="legend">
+                <div class="legend-item" data-gender="male">
+                    <div class="legend-color" style="background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);">
+                    </div>
+                    <span class="legend-label">Male Players</span>
+                </div>
+                <div class="legend-item" data-gender="female">
+                    <div class="legend-color" style="background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);">
+                    </div>
+                    <span class="legend-label">Female Players</span>
+                </div>
+            </div>
+
+            <div class="summary-stats" id="summaryStats"></div>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip" style="display: none;"></div>
+
+    <div class="keyboard-hint">
+        <span><kbd>Space</kbd> Play/Pause</span>
+        <span><kbd>←</kbd><kbd>→</kbd> Scrub Timeline</span>
+    </div>
+
+    <script src="../vendor/d3-7.8.5/dist/d3.js"></script>
+    <script>
+
+        // ============================================================================
+        // CONFIGURATION
+        // ============================================================================
+
+        const CONFIG = {
+            margin: { top: 20, right: 25, bottom: 45, left: 55 },
+            panelWidth: 320,
+            panelHeight: 220,
+            ratingThresholds: [
+                { min: 0, max: 1500, label: "< 1500", skill: "Beginners", id: 0 },
+                { min: 1500, max: 2000, label: "1500-2000", skill: "Intermediate", id: 1 },
+                { min: 2000, max: 2400, label: "2000-2400", skill: "Advanced", id: 2 },
+                { min: 2400, max: 2600, label: "2400-2600", skill: "Expert", id: 3 },
+                { min: 2600, max: 3000, label: "2600+", skill: "Elite", id: 4 }
+            ],
+            animationSpeed: 500,
+            colors: {
+                male: '#3b82f6',
+                female: '#ef4444'
+            }
+        };
+
+        // ============================================================================
+        // GLOBAL STATE
+        // ============================================================================
+
+        let globalData = {
+            players: [],
+            ratings: [],
+            processedData: null,
+            timelineData: null,
+            currentMonthIndex: 0,
+            isPlaying: false,
+            animationInterval: null,
+            viewMode: 'absolute',
+            hiddenGenders: new Set(),
+            categorySelection: {
+                mode: 'show-except',
+                selected: new Set()
+            }
+        };
+
+        // ============================================================================
+        // THEME TOGGLE
+        // ============================================================================
+
+        function initThemeToggle() {
+            const toggle = document.getElementById('themeToggle');
+            const body = document.body;
+
+            // Check saved preference
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'light') {
+                body.setAttribute('data-theme', 'light');
+                toggle.checked = true;
+            }
+
+            toggle.addEventListener('change', function () {
+                if (this.checked) {
+                    body.setAttribute('data-theme', 'light');
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    body.setAttribute('data-theme', 'dark');
+                    localStorage.setItem('theme', 'dark');
+                }
+            });
+        }
+
+        // ============================================================================
+        // DATA LOADING AND PREPROCESSING
+        // ============================================================================
+
+        async function loadData() {
+            try {
+                console.log("Loading data files...");
+
+                const players = await d3.tsv("../data/players.tsv", d => ({
+                    id: d['#id'],
+                    name: d.name,
+                    sex: d.sex,
+                    birthyear: d.birthyear ? +d.birthyear : null,
+                    max_rating: d.max_rating ? +d.max_rating : null,
+                    month: d.month
+                }));
+
+                const ratings = await d3.tsv("../data/ratings.tsv", d => ({
+                    id: d['#id'],
+                    month: d.month,
+                    rating: d.rating ? +d.rating : null,
+                    games: d.games ? +d.games : null
+                }));
+
+                console.log(`Loaded ${players.length} players and ${ratings.length} ratings`);
+
+                globalData.players = players;
+                globalData.ratings = ratings;
+
+                preprocessData();
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('visualization').style.display = 'block';
+
+                initializeVisualization();
+
+            } catch (error) {
+                console.error("Error loading data:", error);
+                document.getElementById('loading').innerHTML = `
+      <div style="color: #ef4444;">
+        <div style="font-size: 24px; margin-bottom: 10px;">⚠️</div>
+        Error loading data: ${error.message}
+      </div>
+    `;
+            }
+        }
+
+        function preprocessData() {
+            console.log("Preprocessing data...");
+
+            const playerMap = new Map();
+            globalData.players.forEach(p => {
+                playerMap.set(p.id, p);
+            });
+
+            console.log(`Player map created with ${playerMap.size} entries`);
+
+            const filteredRatings = globalData.ratings.filter(r =>
+                r.rating && r.rating > 0 && r.month
+            );
+
+            console.log(`Filtered to ${filteredRatings.length} valid ratings`);
+
+            const months = Array.from(new Set(filteredRatings.map(r => r.month))).sort();
+            console.log(`Found ${months.length} unique months from ${months[0]} to ${months[months.length - 1]}`);
+
+            const timelineData = months.map(month => {
+                const monthRatings = filteredRatings.filter(r => r.month === month);
+
+                const thresholdCounts = CONFIG.ratingThresholds.map(threshold => {
+                    const inThreshold = monthRatings.filter(r =>
+                        r.rating >= threshold.min && r.rating < threshold.max
+                    );
+
+                    let maleCount = 0;
+                    let femaleCount = 0;
+
+                    inThreshold.forEach(r => {
+                        const player = playerMap.get(r.id);
+                        if (player) {
+                            if (player.sex === 'M') maleCount++;
+                            else if (player.sex === 'F') femaleCount++;
+                        }
+                    });
+
+                    return {
+                        threshold: threshold.label,
+                        thresholdId: threshold.id,
+                        min: threshold.min,
+                        max: threshold.max,
+                        male: maleCount,
+                        female: femaleCount,
+                        total: maleCount + femaleCount
+                    };
+                });
+
+                return {
+                    month: month,
+                    thresholds: thresholdCounts
+                };
+            });
+
+            globalData.timelineData = timelineData;
+            globalData.currentMonthIndex = timelineData.length - 1; // Start at end to show full data
+
+            console.log("Preprocessing complete. Timeline data:", timelineData.length, "months");
+        }
+
+        // ============================================================================
+        // VISUALIZATION INITIALIZATION
+        // ============================================================================
+
+        function initializeVisualization() {
+            console.log("Initializing visualization...");
+
+            const chartsContainer = d3.select("#charts");
+            chartsContainer.html("");
+
+            initializeCategoryButtons();
+
+            CONFIG.ratingThresholds.forEach((threshold, i) => {
+                const panel = chartsContainer.append("div")
+                    .attr("class", "threshold-panel")
+                    .attr("id", `panel-${i}`)
+                    .attr("data-threshold-id", i);
+
+                const titleDiv = panel.append("div")
+                    .attr("class", "threshold-title")
+                    .html(`${threshold.label}<span class="skill-level">${threshold.skill}</span>`);
+
+                const svg = panel.append("svg")
+                    .attr("width", CONFIG.panelWidth + CONFIG.margin.left + CONFIG.margin.right)
+                    .attr("height", CONFIG.panelHeight + CONFIG.margin.top + CONFIG.margin.bottom);
+
+                const g = svg.append("g")
+                    .attr("transform", `translate(${CONFIG.margin.left},${CONFIG.margin.top})`);
+
+                const xScale = d3.scaleTime().range([0, CONFIG.panelWidth]);
+                const yScale = d3.scaleLinear().range([CONFIG.panelHeight, 0]);
+
+                const xAxis = g.append("g")
+                    .attr("class", "axis x-axis")
+                    .attr("transform", `translate(0,${CONFIG.panelHeight})`);
+
+                const yAxis = g.append("g")
+                    .attr("class", "axis y-axis");
+
+                // Y-axis label only on first panel of each row
+                if (i === 0 || i === 3) {
+                    g.append("text")
+                        .attr("class", "axis-label")
+                        .attr("transform", "rotate(-90)")
+                        .attr("y", -42)
+                        .attr("x", -CONFIG.panelHeight / 2)
+                        .attr("text-anchor", "middle")
+                        .text("Players");
+                }
+
+                const areaFemale = d3.area()
+                    .curve(d3.curveMonotoneX)
+                    .x(d => xScale(d.date))
+                    .y0(CONFIG.panelHeight)
+                    .y1(d => yScale(d.female));
+
+                const areaMale = d3.area()
+                    .curve(d3.curveMonotoneX)
+                    .x(d => xScale(d.date))
+                    .y0(d => yScale(d.female))
+                    .y1(d => yScale(d.female + d.male));
+
+                const femaleArea = g.append("path")
+                    .attr("class", "area area-female");
+
+                const maleArea = g.append("path")
+                    .attr("class", "area area-male");
+
+                // Current position indicator line
+                const currentLine = g.append("line")
+                    .attr("class", "current-line")
+                    .attr("y1", 0)
+                    .attr("y2", CONFIG.panelHeight)
+                    .style("stroke", "#fbbf24")
+                    .style("stroke-width", 2)
+                    .style("stroke-dasharray", "none")
+                    .style("opacity", 0.8);
+
+                const hoverLine = g.append("line")
+                    .attr("class", "hover-line")
+                    .attr("y1", 0)
+                    .attr("y2", CONFIG.panelHeight)
+                    .style("display", "none");
+
+                const mouseRect = g.append("rect")
+                    .attr("width", CONFIG.panelWidth)
+                    .attr("height", CONFIG.panelHeight)
+                    .style("fill", "none")
+                    .style("pointer-events", "all")
+                    .on("mousemove", function (event) { handleMouseMove(event, i, xScale); })
+                    .on("mouseleave", function () { handleMouseLeave(i); });
+
+                svg.datum({
+                    xScale,
+                    yScale,
+                    xAxis,
+                    yAxis,
+                    areaFemale,
+                    areaMale,
+                    femaleArea,
+                    maleArea,
+                    hoverLine,
+                    currentLine,
+                    thresholdIndex: i
+                });
+            });
+
+            // Setup slider
+            const slider = document.getElementById('timeSlider');
+            slider.max = globalData.timelineData.length - 1;
+            slider.value = globalData.currentMonthIndex;
+            slider.addEventListener('input', handleSliderChange);
+
+            // Setup controls
+            document.getElementById('playBtn').addEventListener('click', togglePlay);
+            document.getElementById('absoluteBtn').addEventListener('click', () => setViewMode('absolute'));
+            document.getElementById('percentBtn').addEventListener('click', () => setViewMode('percent'));
+
+            // Speed control
+            document.getElementById('speedSelect').addEventListener('change', function (e) {
+                CONFIG.animationSpeed = +e.target.value;
+                if (globalData.isPlaying) {
+                    stopAnimation();
+                    startAnimation();
+                }
+            });
+
+            // Legend clicks
+            d3.selectAll('.legend-item').on('click', function () {
+                const gender = d3.select(this).attr('data-gender');
+                toggleGender(gender);
+            });
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', handleKeydown);
+
+            updateVisualization();
+        }
+
+        // ============================================================================
+        // CATEGORY SELECTION
+        // ============================================================================
+
+        function initializeCategoryButtons() {
+            const buttonsContainer = d3.select("#categoryButtons");
+            buttonsContainer.html("");
+
+            CONFIG.ratingThresholds.forEach((threshold, i) => {
+                buttonsContainer.append("button")
+                    .attr("class", "category-btn")
+                    .attr("data-threshold-id", i)
+                    .attr("id", `category-btn-${i}`)
+                    .text(`${threshold.label} (${threshold.skill})`)
+                    .on("click", function () {
+                        toggleCategory(i);
+                    });
+            });
+
+            document.getElementById('categoryModeDropdown').addEventListener('change', function (e) {
+                const newMode = e.target.value;
+                const selection = globalData.categorySelection;
+
+                if (selection.mode !== newMode) {
+                    selection.selected.clear();
+                    selection.mode = newMode;
+                    updateCategoryButtons();
+                    updateCategoryVisibility();
+                    updateVisualization();
+                }
+            });
+
+            updateCategoryButtons();
+        }
+
+        function toggleCategory(thresholdId) {
+            const selection = globalData.categorySelection;
+
+            if (selection.selected.has(thresholdId)) {
+                selection.selected.delete(thresholdId);
+            } else {
+                selection.selected.add(thresholdId);
+            }
+
+            updateCategoryButtons();
+            updateCategoryVisibility();
+            updateVisualization();
+        }
+
+        function updateCategoryButtons() {
+            const selection = globalData.categorySelection;
+
+            CONFIG.ratingThresholds.forEach((threshold, i) => {
+                const btn = d3.select(`#category-btn-${i}`);
+                const isSelected = selection.selected.has(i);
+                btn.classed("selected", isSelected);
+            });
+        }
+
+        function updateCategoryVisibility() {
+            const selection = globalData.categorySelection;
+
+            CONFIG.ratingThresholds.forEach((threshold, i) => {
+                const panel = d3.select(`#panel-${i}`);
+
+                let isVisible;
+                if (selection.selected.size === 0) {
+                    isVisible = true;
+                } else if (selection.mode === 'show-except') {
+                    isVisible = !selection.selected.has(i);
+                } else {
+                    isVisible = selection.selected.has(i);
+                }
+
+                panel.classed("hidden", !isVisible);
+            });
+
+            const infoBanner = document.getElementById('selectionInfo');
+
+            if (selection.selected.size === 0) {
+                infoBanner.style.display = 'none';
+            } else {
+                const selectedLabels = Array.from(selection.selected).map(id =>
+                    `${CONFIG.ratingThresholds[id].label} (${CONFIG.ratingThresholds[id].skill})`
+                );
+
+                let message;
+                if (selection.mode === 'show-except') {
+                    message = `<strong>Hiding:</strong> ${selectedLabels.join(', ')}`;
+                } else {
+                    message = `<strong>Showing only:</strong> ${selectedLabels.join(', ')}`;
+                }
+
+                infoBanner.innerHTML = `
+      ${message}
+      <button class="reset-selection" onclick="resetCategorySelection()">Reset</button>
+    `;
+                infoBanner.style.display = 'block';
+            }
+        }
+
+        function resetCategorySelection() {
+            globalData.categorySelection.selected.clear();
+            globalData.categorySelection.mode = 'show-except';
+            document.getElementById('categoryModeDropdown').value = 'show-except';
+            updateCategoryButtons();
+            updateCategoryVisibility();
+            updateVisualization();
+        }
+
+        function getVisibleThresholds() {
+            const selection = globalData.categorySelection;
+
+            if (selection.selected.size === 0) {
+                return CONFIG.ratingThresholds.map((_, i) => i);
+            } else if (selection.mode === 'show-except') {
+                return CONFIG.ratingThresholds.map((_, i) => i).filter(i => !selection.selected.has(i));
+            } else {
+                return Array.from(selection.selected);
+            }
+        }
+
+        // ============================================================================
+        // UPDATE VISUALIZATION
+        // ============================================================================
+
+        function updateVisualization() {
+            const currentMonth = globalData.timelineData[globalData.currentMonthIndex].month;
+
+            document.getElementById('yearLabel').textContent = currentMonth;
+            document.getElementById('timeSlider').value = globalData.currentMonthIndex;
+
+            // Show all data up to current month (progressive reveal)
+            const dataUpToNow = globalData.timelineData.slice(0, globalData.currentMonthIndex + 1);
+
+            // Get global date extent for consistent x-axis
+            const allMonths = globalData.timelineData.map(d => parseMonth(d.month));
+            const globalDateExtent = d3.extent(allMonths);
+
+            d3.selectAll('.threshold-panel svg').each(function () {
+                const svg = d3.select(this);
+                const datum = svg.datum();
+                const { xScale, yScale, xAxis, yAxis, areaFemale, areaMale, femaleArea, maleArea, currentLine, thresholdIndex } = datum;
+
+                const thresholdData = dataUpToNow.map(d => {
+                    const t = d.thresholds[thresholdIndex];
+                    return {
+                        date: parseMonth(d.month),
+                        male: t.male,
+                        female: t.female,
+                        total: t.total
+                    };
+                });
+
+                // Use global date extent for x-axis
+                xScale.domain(globalDateExtent);
+
+                // Calculate max from ALL data for this threshold (not just up to now)
+                const allThresholdData = globalData.timelineData.map(d => d.thresholds[thresholdIndex]);
+
+                if (globalData.viewMode === 'absolute') {
+                    const maxCount = d3.max(allThresholdData, d => d.male + d.female);
+                    yScale.domain([0, maxCount * 1.1 || 1]);
+                } else {
+                    yScale.domain([0, 100]);
+                }
+
+                xAxis.call(d3.axisBottom(xScale)
+                    .ticks(4)
+                    .tickFormat(d3.timeFormat("%Y")));
+
+                yAxis.call(d3.axisLeft(yScale)
+                    .ticks(5)
+                    .tickFormat(d => globalData.viewMode === 'percent' ? `${d}%` : d));
+
+                let areaData;
+                if (globalData.viewMode === 'percent') {
+                    areaData = thresholdData.map(d => ({
+                        date: d.date,
+                        female: d.total > 0 ? (d.female / d.total) * 100 : 0,
+                        male: d.total > 0 ? (d.male / d.total) * 100 : 0
+                    }));
+                } else {
+                    areaData = thresholdData;
+                }
+
+                if (!globalData.hiddenGenders.has('female')) {
+                    femaleArea
+                        .datum(areaData)
+                        .transition()
+                        .duration(150)
+                        .attr("d", areaFemale);
+                } else {
+                    femaleArea.attr("d", null);
+                }
+
+                if (!globalData.hiddenGenders.has('male')) {
+                    maleArea
+                        .datum(areaData)
+                        .transition()
+                        .duration(150)
+                        .attr("d", areaMale);
+                } else {
+                    maleArea.attr("d", null);
+                }
+
+                // Update current position line
+                const currentDate = parseMonth(currentMonth);
+                currentLine
+                    .attr("x1", xScale(currentDate))
+                    .attr("x2", xScale(currentDate))
+                    .style("opacity", globalData.currentMonthIndex < globalData.timelineData.length - 1 ? 0.8 : 0);
+            });
+
+            updateSummaryStats();
+        }
+
+        // ============================================================================
+        // INTERACTION HANDLERS
+        // ============================================================================
+
+        function handleSliderChange(event) {
+            if (globalData.isPlaying) {
+                stopAnimation();
+            }
+            globalData.currentMonthIndex = +event.target.value;
+            updateVisualization();
+        }
+
+        function togglePlay() {
+            if (globalData.isPlaying) {
+                stopAnimation();
+            } else {
+                startAnimation();
+            }
+        }
+
+        function startAnimation() {
+            globalData.isPlaying = true;
+            document.getElementById('playIcon').textContent = '⏸';
+            document.getElementById('playText').textContent = 'Pause';
+
+            // If at end, restart from beginning
+            if (globalData.currentMonthIndex >= globalData.timelineData.length - 1) {
+                globalData.currentMonthIndex = 0;
+            }
+
+            globalData.animationInterval = setInterval(() => {
+                globalData.currentMonthIndex++;
+
+                if (globalData.currentMonthIndex >= globalData.timelineData.length) {
+                    globalData.currentMonthIndex = globalData.timelineData.length - 1;
+                    stopAnimation();
+                    return;
+                }
+
+                updateVisualization();
+            }, CONFIG.animationSpeed);
+        }
+
+        function stopAnimation() {
+            globalData.isPlaying = false;
+            document.getElementById('playIcon').textContent = '▶';
+            document.getElementById('playText').textContent = 'Play';
+
+            if (globalData.animationInterval) {
+                clearInterval(globalData.animationInterval);
+                globalData.animationInterval = null;
+            }
+        }
+
+        function setViewMode(mode) {
+            globalData.viewMode = mode;
+
+            document.getElementById('absoluteBtn').classList.toggle('active', mode === 'absolute');
+            document.getElementById('percentBtn').classList.toggle('active', mode === 'percent');
+
+            updateVisualization();
+        }
+
+        function toggleGender(gender) {
+            if (globalData.hiddenGenders.has(gender)) {
+                globalData.hiddenGenders.delete(gender);
+            } else {
+                globalData.hiddenGenders.add(gender);
+            }
+
+            d3.selectAll('.legend-item').each(function () {
+                const g = d3.select(this).attr('data-gender');
+                d3.select(this).classed('dimmed', globalData.hiddenGenders.has(g));
+            });
+
+            updateVisualization();
+        }
+
+        function handleKeydown(event) {
+            // Ignore if user is typing in an input
+            if (event.target.tagName === 'INPUT' || event.target.tagName === 'SELECT') {
+                return;
+            }
+
+            switch (event.code) {
+                case 'Space':
+                    event.preventDefault();
+                    togglePlay();
+                    break;
+                case 'ArrowLeft':
+                    event.preventDefault();
+                    if (globalData.isPlaying) stopAnimation();
+                    globalData.currentMonthIndex = Math.max(0, globalData.currentMonthIndex - 1);
+                    updateVisualization();
+                    break;
+                case 'ArrowRight':
+                    event.preventDefault();
+                    if (globalData.isPlaying) stopAnimation();
+                    globalData.currentMonthIndex = Math.min(globalData.timelineData.length - 1, globalData.currentMonthIndex + 1);
+                    updateVisualization();
+                    break;
+            }
+        }
+
+        function handleMouseMove(event, thresholdIndex, xScale) {
+            const [mouseX] = d3.pointer(event);
+            const date = xScale.invert(mouseX);
+
+            const dataUpToNow = globalData.timelineData.slice(0, globalData.currentMonthIndex + 1);
+            const dates = dataUpToNow.map(d => parseMonth(d.month));
+            const bisect = d3.bisector(d => d).left;
+            let index = bisect(dates, date);
+
+            // Clamp index
+            index = Math.max(0, Math.min(index, dataUpToNow.length - 1));
+
+            if (index >= 0 && index < dataUpToNow.length) {
+                const d = dataUpToNow[index];
+                const t = d.thresholds[thresholdIndex];
+
+                const panel = d3.select(`#panel-${thresholdIndex} svg`);
+                const datum = panel.datum();
+                datum.hoverLine
+                    .attr("x1", xScale(parseMonth(d.month)))
+                    .attr("x2", xScale(parseMonth(d.month)))
+                    .style("display", null);
+
+                showTooltip(event, d.month, t, CONFIG.ratingThresholds[thresholdIndex]);
+            }
+        }
+
+        function handleMouseLeave(thresholdIndex) {
+            const panel = d3.select(`#panel-${thresholdIndex} svg`);
+            const datum = panel.datum();
+            datum.hoverLine.style("display", "none");
+            hideTooltip();
+        }
+
+        function showTooltip(event, month, data, threshold) {
+            const tooltip = document.getElementById('tooltip');
+
+            const total = data.total;
+            const malePercent = total > 0 ? ((data.male / total) * 100).toFixed(1) : 0;
+            const femalePercent = total > 0 ? ((data.female / total) * 100).toFixed(1) : 0;
+
+            tooltip.innerHTML = `
+    <div class="tooltip-title">${threshold.label} (${threshold.skill})</div>
+    <div class="tooltip-row"><span>Month:</span> <span>${month}</span></div>
+    <div class="tooltip-row"><span>Total:</span> <span>${total.toLocaleString()}</span></div>
+    <div class="tooltip-row"><span style="color: #60a5fa;">■ Male:</span> <span>${data.male.toLocaleString()} (${malePercent}%)</span></div>
+    <div class="tooltip-row"><span style="color: #f87171;">■ Female:</span> <span>${data.female.toLocaleString()} (${femalePercent}%)</span></div>
+  `;
+
+            tooltip.style.display = 'block';
+
+            // Smart positioning
+            const tooltipRect = tooltip.getBoundingClientRect();
+            let left = event.clientX + 15;
+            let top = event.clientY - 15;
+
+            if (left + tooltipRect.width > window.innerWidth) {
+                left = event.clientX - tooltipRect.width - 15;
+            }
+            if (top + tooltipRect.height > window.innerHeight) {
+                top = event.clientY - tooltipRect.height - 15;
+            }
+
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+        }
+
+        function hideTooltip() {
+            document.getElementById('tooltip').style.display = 'none';
+        }
+
+        // ============================================================================
+        // SUMMARY STATISTICS - Now shows only visible categories
+        // ============================================================================
+
+        function updateSummaryStats() {
+            const currentData = globalData.timelineData[globalData.currentMonthIndex];
+            const visibleThresholds = getVisibleThresholds();
+
+            let totalMale = 0;
+            let totalFemale = 0;
+
+            // Only sum visible categories
+            visibleThresholds.forEach(thresholdId => {
+                const t = currentData.thresholds[thresholdId];
+                totalMale += t.male;
+                totalFemale += t.female;
+            });
+
+            const total = totalMale + totalFemale;
+            const femalePercent = total > 0 ? ((totalFemale / total) * 100).toFixed(1) : 0;
+
+            // Find most popular among visible thresholds
+            const visibleData = visibleThresholds.map(id => currentData.thresholds[id]);
+            const maxThreshold = visibleData.length > 0
+                ? visibleData.reduce((max, t) => t.total > max.total ? t : max, visibleData[0])
+                : null;
+
+            // Label text based on selection
+            let selectionText;
+            if (visibleThresholds.length === CONFIG.ratingThresholds.length) {
+                selectionText = "All Categories";
+            } else if (visibleThresholds.length === 1) {
+                const t = CONFIG.ratingThresholds[visibleThresholds[0]];
+                selectionText = `${t.label} (${t.skill})`;
+            } else {
+                selectionText = `${visibleThresholds.length} Categories`;
+            }
+
+            let popularLabel = "N/A";
+            if (maxThreshold) {
+                const threshold = CONFIG.ratingThresholds[maxThreshold.thresholdId];
+                popularLabel = `${threshold.label}`;
+            }
+
+            document.getElementById('summaryStats').innerHTML = `
+    <div class="stat-item">
+      <div class="stat-value">${total.toLocaleString()}</div>
+      <div class="stat-label">Total Players<br><small style="opacity: 0.7">${selectionText}</small></div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value" style="color: #60a5fa;">${totalMale.toLocaleString()}</div>
+      <div class="stat-label">Male Players</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value" style="color: #f87171;">${totalFemale.toLocaleString()}</div>
+      <div class="stat-label">Female Players (${femalePercent}%)</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">${maxThreshold ? maxThreshold.total.toLocaleString() : '0'}</div>
+      <div class="stat-label">Most Popular: ${popularLabel}</div>
+    </div>
+  `;
+        }
+
+        // ============================================================================
+        // UTILITY FUNCTIONS
+        // ============================================================================
+
+        function parseMonth(monthStr) {
+            const [year, month] = monthStr.split('-').map(Number);
+            return new Date(year, month - 1, 1);
+        }
+
+        // ============================================================================
+        // INITIALIZE
+        // ============================================================================
+
+        initThemeToggle();
+        loadData();
+
+    </script>
+
+</body>
+
+</html>

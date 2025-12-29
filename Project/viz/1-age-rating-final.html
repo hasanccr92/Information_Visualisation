@@ -1,0 +1,1719 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Age vs Peak Rating — Complete Visualization</title>
+    <script src="../vendor/d3-7.8.5/dist/d3.min.js"></script>
+
+    <style>
+        :root {
+            --male: #4e79a7;
+            --female: #e15759;
+            --ink: #111827;
+            --muted: #6b7280;
+            --grid: #e6e7eb;
+            --panel: #f6f7f9;
+            --stroke: #d7dbe3;
+            --gutter: 72px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+            color: var(--ink);
+            background: white;
+            overflow: hidden;
+        }
+
+        #app {
+            height: 100vh;
+            display: grid;
+            grid-template-rows: 84px 120px 1fr;
+            grid-template-columns: 1fr 150px;
+            grid-template-areas:
+                "controls controls"
+                "top      top"
+                "main     right";
+        }
+
+        #controls {
+            grid-area: controls;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 18px;
+            background: var(--panel);
+            border-bottom: 1px solid var(--stroke);
+        }
+
+        #controls .cluster {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #controls .cluster.mid {
+            flex: 1;
+        }
+
+        button {
+            appearance: none;
+            border: 1px solid #cfd4dc;
+            background: white;
+            padding: 8px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 13px;
+            color: #111827;
+            user-select: none;
+        }
+
+        button:hover {
+            background: #f3f4f6;
+        }
+
+        button.active {
+            background: #111827;
+            color: white;
+            border-color: #111827;
+        }
+
+        #yearReadout {
+            min-width: 76px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+            color: #111827;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+
+        select {
+            appearance: none;
+            border: 1px solid #cfd4dc;
+            background: white;
+            padding: 8px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #111827;
+        }
+
+        .legend {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            user-select: none;
+        }
+
+        .legend-item:hover {
+            background: #f3f4f6;
+            border-color: #e5e7eb;
+        }
+
+        .legend-item.off {
+            opacity: 0.35;
+            filter: grayscale(0.7);
+        }
+
+        .swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+        }
+
+        #selectionStats {
+            font-size: 12px;
+            color: var(--muted);
+            line-height: 1.25;
+            padding: 8px 10px;
+            border: 1px solid var(--stroke);
+            background: white;
+            border-radius: 10px;
+            min-width: 220px;
+        }
+
+        #selectionStats b {
+            color: #111827;
+        }
+
+        #selectionStats {
+            min-width: 240px;
+            max-width: 280px;
+        }
+
+        #topHist {
+            grid-area: top;
+            border-bottom: 1px solid var(--stroke);
+            background: white;
+        }
+
+        #main {
+            grid-area: main;
+            position: relative;
+            background: white;
+        }
+
+        #rightHist {
+            grid-area: right;
+            border-left: 1px solid var(--stroke);
+            background: white;
+        }
+
+        svg {
+            display: block;
+        }
+
+        .grid line {
+            stroke: var(--grid);
+            stroke-width: 1;
+            shape-rendering: crispEdges;
+        }
+
+        .grid path {
+            display: none;
+        }
+
+        .axis path,
+        .axis line {
+            stroke: #cfd4dc;
+            shape-rendering: crispEdges;
+        }
+
+        .axis text {
+            fill: #6b7280;
+            font-size: 11px;
+        }
+
+        .axis-label {
+            font-size: 13px;
+            font-weight: 800;
+            fill: #374151;
+        }
+
+        .bubble {
+            stroke: white;
+            stroke-width: 1;
+            cursor: pointer;
+            paint-order: stroke;
+            transform-box: fill-box;
+            transform-origin: center;
+        }
+
+        .bubble.dim {
+            opacity: 0.2 !important;
+        }
+
+        .bubble.sel {
+            stroke: #111827;
+            stroke-width: 2.4;
+        }
+
+        .ghost {
+            fill: none;
+            stroke: #9aa0a6;
+            stroke-width: 1;
+            stroke-dasharray: 4 3;
+            opacity: 0.38;
+            pointer-events: none;
+        }
+
+        .connector {
+            stroke: #9aa0a6;
+            stroke-width: 1;
+            stroke-dasharray: 4 4;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .connector.on {
+            opacity: 0.75;
+        }
+
+        .hist-bar {
+            fill: #9aa0a6;
+            opacity: 0.65;
+            cursor: pointer;
+        }
+
+        .hist-bar.pulse {
+            stroke: #111827;
+            stroke-width: 3px;
+            fill: #4f46e5;
+            opacity: 1;
+        }
+
+        .gutter-bg {
+            fill: #fafafa;
+            stroke: #e5e7eb;
+        }
+
+        .gap-area {
+            fill: rgba(245, 158, 11, 0.22);
+            stroke: rgba(245, 158, 11, 0.95);
+            stroke-width: 1.4;
+        }
+
+        .trend-line {
+            fill: none;
+            stroke-width: 2.5;
+            opacity: 0.85;
+        }
+
+        .trend-line.ghosted {
+            stroke-dasharray: 5 5;
+            opacity: 0.3;
+        }
+
+        .contour {
+            fill: none;
+            stroke: #e5e7eb;
+            stroke-width: 0.5;
+            opacity: 0.4;
+        }
+
+        .tooltip {
+            position: absolute;
+            pointer-events: none;
+            background: rgba(17, 24, 39, 0.92);
+            color: white;
+            padding: 10px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            line-height: 1.35;
+            max-width: 280px;
+            opacity: 0;
+            transform: translateY(6px);
+            transition: opacity 120ms linear, transform 120ms linear;
+            z-index: 10;
+        }
+
+        .tooltip.on {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        #resetZoomBtn {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            display: none;
+            z-index: 5;
+        }
+
+        #resetZoomBtn.on {
+            display: inline-block;
+        }
+
+        #detailPanel {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: white;
+            border: 1px solid var(--stroke);
+            border-radius: 12px;
+            padding: 16px;
+            max-width: 300px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transform: translateX(320px);
+            transition: transform 300ms ease;
+            z-index: 10;
+        }
+
+        #detailPanel.on {
+            transform: translateX(0);
+        }
+
+        #detailPanel h3 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            font-weight: 800;
+        }
+
+        #detailPanel .stat {
+            font-size: 12px;
+            margin: 6px 0;
+            color: var(--muted);
+        }
+
+        #detailPanel .stat b {
+            color: var(--ink);
+        }
+
+        #summaryBanner {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%) translateY(60px);
+            background: rgba(17, 24, 39, 0.92);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            transition: transform 300ms ease;
+            z-index: 10;
+        }
+
+        #summaryBanner.on {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        #infoBtn {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--ink);
+            color: white;
+            border: none;
+            font-size: 18px;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            z-index: 15;
+            transition: transform 200ms ease;
+        }
+
+        #infoBtn:hover {
+            transform: scale(1.1);
+            background: #374151;
+        }
+
+        #infoBtn.active {
+            background: var(--female);
+        }
+
+        #legendPanel {
+            position: absolute;
+            bottom: 60px;
+            right: 12px;
+            background: white;
+            border: 1px solid var(--stroke);
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 420px;
+            max-height: 70vh;
+            overflow-y: auto;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+            transform: translateY(20px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 250ms ease, transform 250ms ease;
+            z-index: 20;
+        }
+
+        #legendPanel.on {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: all;
+        }
+
+        #legendPanel h2 {
+            margin: 0 0 16px 0;
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--ink);
+        }
+
+        #legendPanel h3 {
+            margin: 16px 0 8px 0;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--ink);
+        }
+
+        #legendPanel .section {
+            margin-bottom: 16px;
+        }
+
+        #legendPanel .feature {
+            margin: 8px 0;
+            font-size: 12px;
+            line-height: 1.5;
+            color: var(--muted);
+        }
+
+        #legendPanel .feature strong {
+            color: var(--ink);
+            font-weight: 600;
+        }
+
+        #legendPanel .encoding-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 6px 0;
+            font-size: 12px;
+        }
+
+        #legendPanel .encoding-icon {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            background: var(--panel);
+            font-size: 16px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <div id="controls">
+            <div class="cluster">
+                <button id="playBtn">Play</button>
+                <div id="yearReadout">2025</div>
+                <button id="splitBtn">Split View</button>
+                <button id="clearSelectionsBtn" style="background:#ef4444; border-color:#dc2626;"
+                    title="Clear all cohort selections">Clear</button>
+                <div style="display:flex; align-items:center; gap:8px; margin-left:12px;">
+                    <label style="font-size:12px; font-weight:600;">Cohort:</label>
+                    <input id="cohortSizeInput" type="number" min="1" max="50" step="1" value="5"
+                        style="width:60px; padding:6px 8px; border:1px solid #cfd4dc; border-radius:6px; font-size:13px;">
+                    <span style="font-size:11px; color:var(--muted);">yrs</span>
+                </div>
+            </div>
+
+            <div class="cluster mid">
+                <input id="yearSlider" type="range" min="1950" max="2025" step="0.5" value="2025" />
+            </div>
+
+            <div class="cluster">
+                <select id="countryFilter">
+                    <option value="">All Countries</option>
+                </select>
+
+                <div class="legend">
+                    <div class="legend-item" id="legendM" data-sex="M" title="Toggle Male">
+                        <span class="swatch" style="background:var(--male)"></span>
+                        <span>Male</span>
+                    </div>
+                    <div class="legend-item" id="legendF" data-sex="F" title="Toggle Female">
+                        <span class="swatch" style="background:var(--female)"></span>
+                        <span>Female</span>
+                    </div>
+                </div>
+
+                <div id="selectionStats" style="display:none;">
+                    <span id="selectedBirthCohortsText"></span>
+                    <span id="selectedRatingCohortsText"></span>
+                    <b id="selCount"></b>
+                    <b id="selAvg"></b>
+                    <button id="clearSelectionsBtn" style="font-size:11px; padding:4px 8px;">Clear Selections</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="topHist"></div>
+
+        <div id="main">
+            <button id="resetZoomBtn">Reset Zoom</button>
+            <button id="infoBtn" title="Show/Hide Legend">ℹ</button>
+            <div id="tooltip" class="tooltip"></div>
+            <div id="detailPanel">
+                <h3>Selection Details</h3>
+                <div id="detailContent"></div>
+            </div>
+            <div id="summaryBanner"></div>
+            <div id="legendPanel">
+                <h2>Visualization Guide</h2>
+
+                <div class="section">
+                    <h3>Visual Encodings</h3>
+                    <div class="encoding-item">
+                        <div class="encoding-icon">📍</div>
+                        <div><strong>Position:</strong> Birth year (X) × Peak rating (Y)</div>
+                    </div>
+                    <div class="encoding-item">
+                        <div class="encoding-icon">⚫</div>
+                        <div><strong>Size:</strong> Player count (larger = more players)</div>
+                    </div>
+                    <div class="encoding-item">
+                        <div class="encoding-icon">🎨</div>
+                        <div><strong>Color:</strong> Gender (blue = male, red = female)</div>
+                    </div>
+                    <div class="encoding-item">
+                        <div class="encoding-icon">💧</div>
+                        <div><strong>Opacity:</strong> Rating homogeneity (opaque = similar skills)</div>
+                    </div>
+                    <div class="encoding-item">
+                        <div class="encoding-icon">📈</div>
+                        <div><strong>Trend Lines:</strong> LOESS smoothed patterns per gender</div>
+                    </div>
+                    <div class="encoding-item">
+                        <div class="encoding-icon">🗺️</div>
+                        <div><strong>Density Contours:</strong> Background heatmap showing concentration</div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Interactions</h3>
+                    <div class="feature">
+                        <strong>1. Timeline Animation:</strong> Click "Play" to animate through years (1950-2025).
+                    </div>
+                    <div class="feature">
+                        <strong>2. Timeline Scrubbing:</strong> Drag the year slider for instant time navigation with
+                        ghost preview
+                    </div>
+                    <div class="feature">
+                        <strong>3. Bubble Hover:</strong> Hover bubbles (Male or Female based on blue or red part of
+                        bubble) to see detailed stats and dashed connector lines to histograms.
+                    </div>
+                    <div class="feature">
+                        <strong>4. Gender Toggle:</strong> Click legend items to show/hide genders.
+                    </div>
+                    <div class="feature">
+                        <strong>5. Split View Mode:</strong> Click "Split View" to divide the canvas vertically (male
+                        left, female right) with gap chart in between.
+                    </div>
+                    <div class="feature">
+                        <strong>6. Axis Zoom:</strong> Double-click on the chart to zoom to that region.
+                    </div>
+                    <div class="feature">
+                        <strong>7. Histogram Filtering:</strong> Click marginal histogram bars (top/right) to filter by
+                        birth year or rating cohort. Multi-select supported for comparison.
+                    </div>
+                    <div class="feature">
+                        <strong>8. Country Filter:</strong> Select a country from the dropdown to view country-specific
+                        patterns
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Data Aggregation</h3>
+                    <div class="feature">
+                        Players are grouped into <strong>user input birth cohorts (default 5)</strong> and
+                        <strong>50-point rating
+                            bins</strong> to prevent overplotting while preserving patterns.
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Components</h3>
+                    <div class="feature">
+                        • <strong>Top Histogram:</strong> Birth year distribution<br>
+                        • <strong>Right Histogram:</strong> Rating distribution<br>
+                        • <strong>Gap Area Chart:</strong> Shows rating difference between genders (Split View only)
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="rightHist"></div>
+    </div>
+
+    <script>
+        /* =========================
+           CONFIG + STATE
+        ========================= */
+        const config = {
+            dataPath: "../data/players.tsv",
+            minYear: 1950,
+            maxYear: 2025,
+            birthBinSize: 5,
+            ratingBinSize: 50,
+            gutter: 72,
+            colors: { M: "#4e79a7", F: "#e15759" },
+            playStepMs: 800,
+
+            bubbleRadius: [2.5, 30],
+            opacityRange: [0.25, 0.92], // high stddev => low opacity
+
+            mainMargin: { top: 34, right: 18, bottom: 56, left: 74 },
+            topMargin: { top: 12, right: 18, bottom: 18, left: 74 },
+            rightMargin: { top: 34, right: 12, bottom: 56, left: 10 }
+        };
+
+        const state = {
+            raw: [],
+            currentYear: 2025,
+            playing: false,
+            timer: null,
+            visibleSex: new Set(["M", "F"]),
+            splitView: false,
+            brushPx: null,
+            zoomT: d3.zoomIdentity,
+            hoverKey: null,
+            selectedCountry: "",
+            birthBinSize: 5, // Configurable cohort size
+            selectedBirthBins: new Set(), // Multiple birth cohort selection
+            selectedRatingBins: new Set() // Multiple rating cohort selection
+        };
+
+        const ui = {
+            playBtn: document.getElementById("playBtn"),
+            splitBtn: document.getElementById("splitBtn"),
+            yearSlider: document.getElementById("yearSlider"),
+            yearReadout: document.getElementById("yearReadout"),
+            legendM: document.getElementById("legendM"),
+            legendF: document.getElementById("legendF"),
+            selCount: document.getElementById("selCount"),
+            selAvg: document.getElementById("selAvg"),
+            resetZoomBtn: document.getElementById("resetZoomBtn"),
+            tooltip: document.getElementById("tooltip"),
+            detailPanel: document.getElementById("detailPanel"),
+            detailContent: document.getElementById("detailContent"),
+            summaryBanner: document.getElementById("summaryBanner"),
+            countryFilter: document.getElementById("countryFilter"),
+            infoBtn: document.getElementById("infoBtn"),
+            legendPanel: document.getElementById("legendPanel"),
+            cohortSizeInput: document.getElementById("cohortSizeInput"),
+            selectedBirthCohortsText: document.getElementById("selectedBirthCohortsText"),
+            selectedRatingCohortsText: document.getElementById("selectedRatingCohortsText"),
+            clearSelectionsBtn: document.getElementById("clearSelectionsBtn")
+        };
+
+        function binBirthYear(y) { return Math.floor(y / state.birthBinSize) * state.birthBinSize; }
+        function binRating(r) { return Math.floor(r / config.ratingBinSize) * config.ratingBinSize; }
+        function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+        // Update the cohort selection text display in sidebar
+        function updateCohortSelectionDisplay() {
+            // Birth cohorts
+            if (state.selectedBirthBins.size > 0) {
+                const birthRanges = [...state.selectedBirthBins]
+                    .sort((a, b) => a - b)
+                    .map(bin => `${bin}-${bin + state.birthBinSize}`);
+                ui.selectedBirthCohortsText.textContent = birthRanges.join(', ');
+            } else {
+                ui.selectedBirthCohortsText.textContent = 'None';
+            }
+
+            // Rating cohorts
+            if (state.selectedRatingBins.size > 0) {
+                const ratingRanges = [...state.selectedRatingBins]
+                    .sort((a, b) => a - b)
+                    .map(bin => `${bin}-${bin + config.ratingBinSize}`);
+                ui.selectedRatingCohortsText.textContent = ratingRanges.join(', ');
+            } else {
+                ui.selectedRatingCohortsText.textContent = 'None';
+            }
+        }
+
+        /* =========================
+           DATA
+        ========================= */
+        function parseRow(d) {
+            const birthyear = +d.birthyear;
+            const max_rating = +d.max_rating;
+            const month = (d.month || "").trim();
+            const sex = (d.sex || "").trim();
+            const fed = (d.fed || "UNK").trim();
+            const name = (d.name || "").trim();
+
+            if (!Number.isFinite(birthyear) || !Number.isFinite(max_rating) || !month) return null;
+            if (sex !== "M" && sex !== "F") return null;
+            // Filter out impossible birth years (0, placeholder values, too old)
+            if (birthyear < 1850) return null;
+
+            const peak_year = +month.slice(0, 4);
+            if (!Number.isFinite(peak_year)) return null;
+
+            return {
+                id: d["#id"] ?? null,
+                name,
+                fed,
+                sex,
+                birthyear,
+                max_rating,
+                month,
+                peak_year,
+                age_at_peak: peak_year - birthyear
+            };
+        }
+
+        async function loadData() {
+            const rows = await d3.tsv(config.dataPath);
+            return rows.map(parseRow).filter(d => d !== null);
+        }
+
+        function filterPlayers(year) {
+            let players = state.raw.filter(d => d.peak_year <= year && state.visibleSex.has(d.sex));
+
+            if (state.selectedCountry) {
+                players = players.filter(d => d.fed === state.selectedCountry);
+            }
+
+            // Filter by selected birth cohorts - ONLY exact bins
+            if (state.selectedBirthBins.size > 0) {
+                players = players.filter(d => state.selectedBirthBins.has(binBirthYear(d.birthyear)));
+            }
+
+            // Filter by selected rating cohorts - ONLY exact bins
+            if (state.selectedRatingBins.size > 0) {
+                players = players.filter(d => state.selectedRatingBins.has(binRating(d.max_rating)));
+            }
+
+            return players;
+        }
+
+        function ghostPlayers(year) {
+            const y = year + 1;
+            return state.raw.filter(d =>
+                d.peak_year <= y && d.peak_year > year && state.visibleSex.has(d.sex)
+            );
+        }
+
+        function aggregateCohorts(players) {
+            const roll = d3.rollups(
+                players,
+                (v) => {
+                    const ratings = v.map(p => p.max_rating);
+                    const avg = d3.mean(ratings);
+                    const sd = d3.deviation(ratings) || 0;
+
+                    const fedCount = d3.rollups(v, vv => vv.length, p => p.fed)
+                        .sort((a, b) => d3.descending(a[1], b[1]))
+                        .slice(0, 3)
+                        .map(d => d[0]);
+
+                    return {
+                        count: v.length,
+                        avg_rating: avg,
+                        std_dev: sd,
+                        top_countries: fedCount,
+                        players: v
+                    };
+                },
+                p => binBirthYear(p.birthyear),
+                p => binRating(p.max_rating),
+                p => p.sex
+            );
+
+            const out = [];
+            for (const [birthBin, ratingMap] of roll) {
+                for (const [ratingBin, sexMap] of ratingMap) {
+                    for (const [sex, agg] of sexMap) {
+                        out.push({
+                            birthBin,
+                            ratingBin,
+                            sex,
+                            ...agg,
+                            key: `${birthBin}|${ratingBin}|${sex}`
+                        });
+                    }
+                }
+            }
+            return out;
+        }
+
+        /* =========================
+           LOESS Smoothing (simplified)
+        ========================= */
+        function loess(data, bandwidth = 0.3) {
+            // Simple weighted moving average approximation
+            const sorted = data.slice().sort((a, b) => a.x - b.x);
+            const n = sorted.length;
+            const result = [];
+
+            for (let i = 0; i < n; i++) {
+                const x0 = sorted[i].x;
+                const range = (d3.max(sorted, d => d.x) - d3.min(sorted, d => d.x)) * bandwidth;
+
+                let sumW = 0;
+                let sumWY = 0;
+
+                for (let j = 0; j < n; j++) {
+                    const dist = Math.abs(sorted[j].x - x0);
+                    if (dist < range) {
+                        const w = Math.pow(1 - Math.pow(dist / range, 3), 3);
+                        sumW += w;
+                        sumWY += w * sorted[j].y;
+                    }
+                }
+
+                result.push({ x: x0, y: sumW > 0 ? sumWY / sumW : sorted[i].y });
+            }
+
+            return result;
+        }
+
+        /* =========================
+           DOM / SVG SETUP
+        ========================= */
+        const charts = {
+            main: { svg: null, g: null, w: 0, h: 0, plotW: 0, plotH: 0 },
+            top: { svg: null, g: null, w: 0, h: 0, plotW: 0, plotH: 0 },
+            right: { svg: null, g: null, w: 0, h: 0, plotW: 0, plotH: 0 }
+        };
+
+        function mount() {
+            // MAIN
+            d3.select("#main").selectAll("svg").remove();
+            const mainBox = document.getElementById("main").getBoundingClientRect();
+            charts.main.w = mainBox.width; charts.main.h = mainBox.height;
+
+            charts.main.svg = d3.select("#main").append("svg")
+                .attr("width", charts.main.w)
+                .attr("height", charts.main.h);
+
+            charts.main.g = charts.main.svg.append("g")
+                .attr("transform", `translate(${config.mainMargin.left},${config.mainMargin.top})`);
+
+            charts.main.plotW = charts.main.w - config.mainMargin.left - config.mainMargin.right;
+            charts.main.plotH = charts.main.h - config.mainMargin.top - config.mainMargin.bottom;
+
+            charts.main.clipId = "clip-main";
+            charts.main.svg.append("defs").append("clipPath")
+                .attr("id", charts.main.clipId)
+                .append("rect")
+                .attr("width", charts.main.plotW)
+                .attr("height", charts.main.plotH);
+
+            charts.main.gridX = charts.main.g.append("g").attr("class", "grid");
+            charts.main.gridY = charts.main.g.append("g").attr("class", "grid");
+
+            charts.main.xAxis = charts.main.g.append("g")
+                .attr("class", "axis")
+                .attr("transform", `translate(0,${charts.main.plotH})`);
+
+            charts.main.yAxis = charts.main.g.append("g").attr("class", "axis");
+
+            charts.main.xAxisL = charts.main.g.append("g")
+                .attr("class", "axis")
+                .attr("transform", `translate(0,${charts.main.plotH})`)
+                .style("display", "none");
+
+            charts.main.xAxisR = charts.main.g.append("g")
+                .attr("class", "axis")
+                .attr("transform", `translate(0,${charts.main.plotH})`)
+                .style("display", "none");
+
+            charts.main.xLabel = charts.main.g.append("text")
+                .attr("class", "axis-label")
+                .attr("id", "xAxisLabel")
+                .attr("x", charts.main.plotW / 2)
+                .attr("y", charts.main.plotH + 44)
+                .attr("text-anchor", "middle")
+                .text(`Birth year (${state.birthBinSize}-year cohorts)`);
+
+            charts.main.g.append("text")
+                .attr("class", "axis-label")
+                .attr("transform", `translate(${-54},${charts.main.plotH / 2}) rotate(-90)`)
+                .attr("text-anchor", "middle")
+                .text("Peak rating");
+
+            charts.main.gContour = charts.main.g.append("g").attr("clip-path", `url(#${charts.main.clipId})`);
+            charts.main.gGutter = charts.main.g.append("g").attr("clip-path", `url(#${charts.main.clipId})`);
+            charts.main.gGhost = charts.main.g.append("g").attr("clip-path", `url(#${charts.main.clipId})`);
+            charts.main.gTrend = charts.main.g.append("g").attr("clip-path", `url(#${charts.main.clipId})`);
+
+            charts.main.brushG = charts.main.g.append("g").attr("class", "brush");
+
+            charts.main.zoomRect = charts.main.g.append("rect")
+                .attr("width", charts.main.plotW)
+                .attr("height", charts.main.plotH)
+                .attr("fill", "transparent")
+                .style("pointer-events", "all");
+
+            // Bubbles and connectors on TOP so they receive mouse events
+            charts.main.gBub = charts.main.g.append("g").attr("clip-path", `url(#${charts.main.clipId})`);
+            charts.main.gConn = charts.main.g.append("g").attr("clip-path", `url(#${charts.main.clipId})`);
+
+            // TOP HIST
+            d3.select("#topHist").selectAll("svg").remove();
+            const topBox = document.getElementById("topHist").getBoundingClientRect();
+            charts.top.w = topBox.width; charts.top.h = topBox.height;
+
+            charts.top.svg = d3.select("#topHist").append("svg")
+                .attr("width", charts.top.w)
+                .attr("height", charts.top.h);
+
+            charts.top.g = charts.top.svg.append("g")
+                .attr("transform", `translate(${config.topMargin.left},${config.topMargin.top})`);
+
+            charts.top.plotW = charts.top.w - config.topMargin.left - config.topMargin.right;
+            charts.top.plotH = charts.top.h - config.topMargin.top - config.topMargin.bottom;
+
+            charts.top.axis = charts.top.g.append("g")
+                .attr("class", "axis")
+                .attr("transform", `translate(0,${charts.top.plotH})`);
+
+            // RIGHT HIST
+            d3.select("#rightHist").selectAll("svg").remove();
+            const rightBox = document.getElementById("rightHist").getBoundingClientRect();
+            charts.right.w = rightBox.width; charts.right.h = rightBox.height;
+
+            charts.right.svg = d3.select("#rightHist").append("svg")
+                .attr("width", charts.right.w)
+                .attr("height", charts.right.h);
+
+            charts.right.g = charts.right.svg.append("g")
+                .attr("transform", `translate(${config.rightMargin.left},${config.rightMargin.top})`);
+
+            charts.right.plotW = charts.right.w - config.rightMargin.left - config.rightMargin.right;
+            charts.right.plotH = charts.right.h - config.rightMargin.top - config.rightMargin.bottom;
+
+            charts.right.axis = charts.right.g.append("g").attr("class", "axis");
+
+            bindBrush();
+            bindZoom();
+        }
+
+        function bindBrush() {
+            const brush = d3.brush()
+                .extent([[0, 0], [charts.main.plotW, charts.main.plotH]])
+                .on("start brush end", (event) => {
+                    state.brushPx = event.selection;
+                    update(false);
+                });
+
+            charts.main.brushG.call(brush);
+        }
+
+        function bindZoom() {
+            const zoom = d3.zoom()
+                .scaleExtent([1, 20])
+                .translateExtent([[0, 0], [charts.main.plotW, charts.main.plotH]])
+                .extent([[0, 0], [charts.main.plotW, charts.main.plotH]])
+                .on("zoom", (event) => {
+                    state.zoomT = event.transform;
+                    ui.resetZoomBtn.classList.toggle("on", state.zoomT.k > 1.001);
+                    update(false);
+                });
+
+            charts.main.zoomRect.call(zoom);
+
+            // Double-click to zoom to region
+            charts.main.zoomRect.on("dblclick.zoom", function (event) {
+                event.preventDefault();
+                const [mx, my] = d3.pointer(event);
+                const scale = 4;
+                const newTransform = d3.zoomIdentity
+                    .translate(charts.main.plotW / 2, charts.main.plotH / 2)
+                    .scale(scale)
+                    .translate(-mx, -my);
+
+                d3.select(this).transition().duration(500).call(zoom.transform, newTransform);
+            });
+
+            ui.resetZoomBtn.onclick = () => {
+                charts.main.zoomRect.transition().duration(450).call(zoom.transform, d3.zoomIdentity);
+            };
+        }
+
+        /* =========================
+           SCALES
+        ========================= */
+        function computeBaseDomains() {
+            const bins = state.raw.map(d => binBirthYear(d.birthyear));
+            // Use 1890 as minimum to show early birth years like 1902
+            const x0 = Math.min(1890, d3.min(bins));
+            const x1 = d3.max(bins) + state.birthBinSize;
+
+            const visible = [...state.visibleSex];
+            const pool = (visible.length === 1)
+                ? state.raw.filter(d => d.sex === visible[0])
+                : state.raw;
+
+            const y0 = d3.min(pool, d => d.max_rating);
+            const y1 = d3.max(pool, d => d.max_rating);
+
+            // Add padding to Y domain to make it less cramped (5% on each side)
+            const yRange = y1 - y0;
+            const yPadding = yRange * 0.05;
+
+            return {
+                xDomain: [x0, x1],
+                yDomain: [y0 - yPadding, y1 + yPadding]
+            };
+        }
+
+        function buildScales(dom) {
+            const W = charts.main.plotW;
+            const H = charts.main.plotH;
+
+            const baseX = d3.scaleLinear().domain(dom.xDomain).range([0, W]);
+            const baseY = d3.scaleLinear().domain(dom.yDomain).range([H, 0]).nice();
+
+            const y = state.zoomT.rescaleY(baseY);
+
+            if (!state.splitView) {
+                const x = state.zoomT.rescaleX(baseX);
+                return { baseX, baseY, xM: x, xF: x, y, mode: "single" };
+            }
+
+            const leftW = (W - config.gutter) / 2;
+            const rightW = (W - config.gutter) / 2;
+
+            const baseXL = d3.scaleLinear().domain(dom.xDomain).range([0, leftW]);
+            const baseXR = d3.scaleLinear().domain(dom.xDomain).range([leftW + config.gutter, leftW + config.gutter + rightW]);
+
+            const xL = state.zoomT.rescaleX(baseXL);
+            const xR = state.zoomT.rescaleX(baseXR);
+
+            return { baseX, baseY, xM: xL, xF: xR, y, mode: "split", leftW, rightW };
+        }
+
+        /* =========================
+           TREND LINES
+        ========================= */
+        function renderTrendLines(cohorts, scales) {
+            charts.main.gTrend.selectAll("*").remove();
+
+            const genders = state.splitView
+                ? (state.visibleSex.has("M") && state.visibleSex.has("F") ? ["M", "F"] : [...state.visibleSex])
+                : [...state.visibleSex];
+
+            genders.forEach(sex => {
+                const data = cohorts
+                    .filter(d => d.sex === sex)
+                    .map(d => ({ x: d.birthBin, y: d.avg_rating }));
+
+                if (data.length < 3) return;
+
+                const smoothed = loess(data, 0.25);
+                const xScale = state.splitView ? (sex === "M" ? scales.xM : scales.xF) : scales.xM;
+
+                const line = d3.line()
+                    .x(d => xScale(d.x))
+                    .y(d => scales.y(d.y))
+                    .curve(d3.curveBasis);
+
+                const isGhosted = !state.visibleSex.has(sex);
+
+                charts.main.gTrend.append("path")
+                    .datum(smoothed)
+                    .attr("class", isGhosted ? "trend-line ghosted" : "trend-line")
+                    .attr("stroke", config.colors[sex])
+                    .attr("d", line);
+            });
+        }
+
+        /* =========================
+           DENSITY CONTOURS
+        ========================= */
+        function renderDensityContours(players, scales) {
+            charts.main.gContour.selectAll("*").remove();
+
+            if (players.length < 10) return;
+
+            const xScale = scales.mode === "single" ? scales.xM : scales.baseX;
+            const yScale = scales.baseY;
+
+            const contours = d3.contourDensity()
+                .x(d => xScale(binBirthYear(d.birthyear)))
+                .y(d => yScale(d.max_rating))
+                .size([charts.main.plotW, charts.main.plotH])
+                .bandwidth(20)
+                .thresholds(10)
+                (players);
+
+            charts.main.gContour.selectAll("path")
+                .data(contours)
+                .join("path")
+                .attr("class", "contour")
+                .attr("d", d3.geoPath());
+        }
+
+        /* =========================
+           MARGINAL HISTOGRAMS
+        ========================= */
+        function renderTopHist(cohorts, scales) {
+            const counts = d3.rollups(cohorts, v => ({
+                count: d3.sum(v, d => d.count),
+                avgRating: d3.mean(v, d => d.avg_rating)
+            }), d => d.birthBin)
+                .map(([birthBin, data]) => ({ birthBin, count: data.count, avgRating: data.avgRating }))
+                .sort((a, b) => d3.ascending(a.birthBin, b.birthBin));
+
+            const x = d3.scaleLinear()
+                .domain(scales.baseX.domain())
+                .range([0, charts.top.plotW]);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(counts, d => d.count) || 1])
+                .range([charts.top.plotH, 0]);
+
+            charts.top.axis.call(d3.axisBottom(x).ticks(10).tickFormat(d3.format("d")));
+
+            const bars = charts.top.g.selectAll("rect.hist-bar")
+                .data(counts, d => d.birthBin);
+
+            bars.join(
+                enter => enter.append("rect")
+                    .attr("class", "hist-bar")
+                    .attr("x", d => x(d.birthBin))
+                    .attr("y", charts.top.plotH)
+                    .attr("width", d => {
+                        const startX = x(d.birthBin);
+                        const endX = x(d.birthBin + state.birthBinSize);
+                        return Math.max(1, endX - startX - 1);
+                    })
+                    .attr("height", 0)
+                    .attr("data-birthbin", d => d.birthBin)
+                    .on("click", function (event, d) {
+                        // Toggle selection
+                        if (state.selectedBirthBins.has(d.birthBin)) {
+                            state.selectedBirthBins.delete(d.birthBin);
+                        } else {
+                            state.selectedBirthBins.add(d.birthBin);
+                        }
+                        updateCohortSelectionDisplay();
+                        update(false);
+                    })
+                    .classed("pulse", d => state.selectedBirthBins.has(d.birthBin))
+                    .call(e => e.transition().duration(250)
+                        .attr("y", d => y(d.count))
+                        .attr("height", d => charts.top.plotH - y(d.count))
+                    ),
+                update => update
+                    .classed("pulse", d => state.selectedBirthBins.has(d.birthBin))
+                    .call(u => u.transition().duration(250)
+                        .attr("x", d => x(d.birthBin))
+                        .attr("width", d => {
+                            const startX = x(d.birthBin);
+                            const endX = x(d.birthBin + state.birthBinSize);
+                            return Math.max(1, endX - startX - 1);
+                        })
+                        .attr("y", d => y(d.count))
+                        .attr("height", d => charts.top.plotH - y(d.count))
+                    ),
+                exit => exit.call(xit => xit.transition().duration(200).attr("height", 0).attr("y", charts.top.plotH).remove())
+            );
+
+            // Add avg rating labels above selected bars
+            const selectedData = counts.filter(d => state.selectedBirthBins.has(d.birthBin));
+            const labels = charts.top.g.selectAll("text.avg-label")
+                .data(selectedData, d => d.birthBin);
+
+            labels.join(
+                enter => enter.append("text")
+                    .attr("class", "avg-label")
+                    .attr("x", d => x(d.birthBin) + (x(d.birthBin + state.birthBinSize) - x(d.birthBin)) / 2)
+                    .attr("y", d => y(d.count) - 4)
+                    .attr("text-anchor", "middle")
+                    .attr("font-size", "10px")
+                    .attr("font-weight", "600")
+                    .attr("fill", "#4f46e5")
+                    .text(d => `Avg: ${Math.round(d.avgRating || 0)}`),
+                update => update
+                    .attr("x", d => x(d.birthBin) + (x(d.birthBin + state.birthBinSize) - x(d.birthBin)) / 2)
+                    .attr("y", d => y(d.count) - 4)
+                    .text(d => `Avg: ${Math.round(d.avgRating || 0)}`),
+                exit => exit.remove()
+            );
+        }
+
+        function renderRightHist(cohorts, dom, scales) {
+            const counts = d3.rollups(cohorts, v => d3.sum(v, d => d.count), d => d.ratingBin)
+                .map(([ratingBin, count]) => ({ ratingBin, count }))
+                .sort((a, b) => d3.ascending(a.ratingBin, b.ratingBin));
+
+            const y = d3.scaleLinear()
+                .domain(dom.yDomain)
+                .range([charts.right.plotH, 0])
+                .nice();
+
+            const x = d3.scaleLinear()
+                .domain([0, d3.max(counts, d => d.count) || 1])
+                .range([0, charts.right.plotW]);
+
+            charts.right.axis.call(d3.axisLeft(y).ticks(10));
+
+            const bars = charts.right.g.selectAll("rect.hist-bar")
+                .data(counts, d => d.ratingBin);
+
+            bars.join(
+                enter => enter.append("rect")
+                    .attr("class", "hist-bar")
+                    .attr("x", 0)
+                    .attr("y", d => y(d.ratingBin + config.ratingBinSize))
+                    .attr("width", 0)
+                    .attr("height", d => {
+                        const topY = y(d.ratingBin + config.ratingBinSize);
+                        const bottomY = y(d.ratingBin);
+                        return Math.max(1, bottomY - topY - 1);
+                    })
+                    .attr("data-ratingbin", d => d.ratingBin)
+                    .on("click", function (event, d) {
+                        // Toggle selection
+                        if (state.selectedRatingBins.has(d.ratingBin)) {
+                            state.selectedRatingBins.delete(d.ratingBin);
+                        } else {
+                            state.selectedRatingBins.add(d.ratingBin);
+                        }
+                        updateCohortSelectionDisplay();
+                        update(false);
+                    })
+                    .classed("pulse", d => state.selectedRatingBins.has(d.ratingBin))
+                    .call(e => e.transition().duration(250).attr("width", d => x(d.count))),
+                update => update
+                    .classed("pulse", d => state.selectedRatingBins.has(d.ratingBin))
+                    .call(u => u.transition().duration(250)
+                        .attr("y", d => y(d.ratingBin + config.ratingBinSize))
+                        .attr("height", d => {
+                            const topY = y(d.ratingBin + config.ratingBinSize);
+                            const bottomY = y(d.ratingBin);
+                            return Math.max(1, bottomY - topY - 1);
+                        })
+                        .attr("width", d => x(d.count))
+                    ),
+                exit => exit.call(xit => xit.transition().duration(200).attr("width", 0).remove())
+            );
+        }
+
+        /* =========================
+           SPLIT VIEW GAP
+        ========================= */
+        function renderGapArea(players, dom) {
+            charts.main.gGutter.selectAll("*").remove();
+            if (!state.splitView) return;
+            if (!(state.visibleSex.has("M") && state.visibleSex.has("F"))) return;
+
+            const W = charts.main.plotW;
+            const H = charts.main.plotH;
+            const leftW = (W - config.gutter) / 2;
+            const gx0 = leftW;
+            const gx1 = leftW + config.gutter;
+
+            charts.main.gGutter.append("rect")
+                .attr("class", "gutter-bg")
+                .attr("x", gx0)
+                .attr("y", 0)
+                .attr("width", config.gutter)
+                .attr("height", H);
+
+            // Calculate gap per birth bin
+            const maleByBirth = d3.rollups(
+                players.filter(p => p.sex === "M"),
+                v => d3.mean(v, d => d.max_rating),
+                p => binBirthYear(p.birthyear)
+            );
+            const femaleByBirth = d3.rollups(
+                players.filter(p => p.sex === "F"),
+                v => d3.mean(v, d => d.max_rating),
+                p => binBirthYear(p.birthyear)
+            );
+
+            const maleMap = new Map(maleByBirth);
+            const femaleMap = new Map(femaleByBirth);
+
+            const allBins = [...new Set([...maleMap.keys(), ...femaleMap.keys()])].sort(d3.ascending);
+            const gaps = allBins.map(bin => ({
+                birthBin: bin,
+                gap: Math.abs((maleMap.get(bin) || 0) - (femaleMap.get(bin) || 0))
+            }));
+
+            if (gaps.length < 2) return;
+
+            const xGap = d3.scaleLinear()
+                .domain(dom.xDomain)
+                .range([gx0, gx1]);
+
+            const yGap = d3.scaleLinear()
+                .domain([0, d3.max(gaps, d => d.gap) || 1])
+                .range([H, H * 0.6]);
+
+            const area = d3.area()
+                .x(d => xGap(d.birthBin))
+                .y0(H)
+                .y1(d => yGap(d.gap))
+                .curve(d3.curveBasis);
+
+            charts.main.gGutter.append("path")
+                .datum(gaps)
+                .attr("class", "gap-area")
+                .attr("d", area);
+        }
+
+        /* =========================
+           MAIN SCATTERPLOT
+        ========================= */
+        function renderBubbles(cohorts, ghostCohorts, dom, scales) {
+            // Render ghost bubbles first
+            const ghosts = charts.main.gGhost.selectAll("circle.ghost")
+                .data(ghostCohorts, d => d.key);
+
+            ghosts.join(
+                enter => enter.append("circle")
+                    .attr("class", "ghost")
+                    .attr("cx", d => (d.sex === "M" ? scales.xM : scales.xF)(d.birthBin))
+                    .attr("cy", d => scales.y(d.ratingBin))
+                    .attr("r", 0)
+                    .call(e => e.transition().duration(200)
+                        .attr("r", d => {
+                            const rScale = d3.scaleSqrt()
+                                .domain([0, d3.max(cohorts, c => c.count) || 1])
+                                .range(config.bubbleRadius);
+                            return rScale(d.count);
+                        })
+                    ),
+                update => update
+                    .call(u => u.transition().duration(200)
+                        .attr("cx", d => (d.sex === "M" ? scales.xM : scales.xF)(d.birthBin))
+                        .attr("cy", d => scales.y(d.ratingBin))
+                    ),
+                exit => exit.call(xit => xit.transition().duration(150).attr("r", 0).remove())
+            );
+
+            // Main bubbles
+            const rScale = d3.scaleSqrt()
+                .domain([0, d3.max(cohorts, d => d.count) || 1])
+                .range(config.bubbleRadius);
+
+            const maxStdDev = d3.max(cohorts, d => d.std_dev) || 1;
+            const opacityScale = d3.scaleLinear()
+                .domain([0, maxStdDev])
+                .range([config.opacityRange[1], config.opacityRange[0]]);
+
+            // Check if any bubbles are selected
+            let selectedCohorts = [];
+            if (state.brushPx) {
+                const [[x0, y0], [x1, y1]] = state.brushPx;
+                selectedCohorts = cohorts.filter(d => {
+                    const xScale = d.sex === "M" ? scales.xM : scales.xF;
+                    const cx = xScale(d.birthBin);
+                    const cy = scales.y(d.ratingBin);
+                    return cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1;
+                });
+
+                // Update detail panel
+                if (selectedCohorts.length > 0) {
+                    const totalPlayers = d3.sum(selectedCohorts, d => d.count);
+                    const avgRating = d3.mean(selectedCohorts, d => d.avg_rating);
+                    const topCountries = d3.rollups(
+                        selectedCohorts.flatMap(c => c.top_countries),
+                        v => v.length,
+                        d => d
+                    ).sort((a, b) => d3.descending(a[1], b[1]))
+                        .slice(0, 5)
+                        .map(d => d[0]);
+
+                    ui.detailContent.innerHTML = `
+                        <div class="stat">Players: <b>${totalPlayers}</b></div>
+                        <div class="stat">Avg Rating: <b>${Math.round(avgRating)}</b></div>
+                        <div class="stat">Top Countries: <b>${topCountries.join(", ")}</b></div>
+                    `;
+                    ui.detailPanel.classList.add("on");
+
+                    ui.selCount.textContent = totalPlayers;
+                    ui.selAvg.textContent = Math.round(avgRating);
+                } else {
+                    ui.detailPanel.classList.remove("on");
+                    ui.selCount.textContent = "0";
+                    ui.selAvg.textContent = "–";
+                }
+            } else {
+                ui.detailPanel.classList.remove("on");
+                ui.selCount.textContent = "0";
+                ui.selAvg.textContent = "–";
+            }
+
+            const bubbles = charts.main.gBub.selectAll("circle.bubble")
+                .data(cohorts, d => d.key);
+
+            bubbles.join(
+                enter => enter.append("circle")
+                    .attr("class", "bubble")
+                    .attr("cx", d => (d.sex === "M" ? scales.xM : scales.xF)(d.birthBin))
+                    .attr("cy", d => scales.y(d.ratingBin))
+                    .attr("r", 0)
+                    .attr("fill", d => config.colors[d.sex])
+                    .attr("opacity", d => opacityScale(d.std_dev))
+                    .on("mouseenter", handleBubbleHover)
+                    .on("mouseleave", handleBubbleLeave)
+                    .call(e => e.transition().duration(300)
+                        .attr("r", d => rScale(d.count))
+                    ),
+                update => update
+                    .classed("sel", d => selectedCohorts.includes(d))
+                    .classed("dim", d => state.brushPx && !selectedCohorts.includes(d))
+                    .call(u => u.transition().duration(300)
+                        .attr("cx", d => (d.sex === "M" ? scales.xM : scales.xF)(d.birthBin))
+                        .attr("cy", d => scales.y(d.ratingBin))
+                        .attr("r", d => rScale(d.count))
+                        .attr("fill", d => config.colors[d.sex])
+                        .attr("opacity", d => opacityScale(d.std_dev))
+                    ),
+                exit => exit.call(xit => xit.transition().duration(250).attr("r", 0).remove())
+            );
+        }
+
+        function handleBubbleHover(event, d) {
+            state.hoverKey = d.key;
+
+            // Scale bubble
+            d3.select(event.target)
+                .transition().duration(150)
+                .attr("transform", "scale(1.2)");
+
+            // Show tooltip with dynamic positioning
+            ui.tooltip.innerHTML = `
+                <b>Birth Years: ${d.birthBin}-${d.birthBin + config.birthBinSize}</b><br/>
+                Rating: ${d.ratingBin}-${d.ratingBin + config.ratingBinSize}<br/>
+                Players: ${d.count}<br/>
+                Avg: ${Math.round(d.avg_rating)} ± ${Math.round(d.std_dev)}<br/>
+                Top: ${d.top_countries.join(", ")}
+            `;
+
+            // Use client coordinates for viewport boundary checks
+            const clientX = event.clientX;
+            const clientY = event.clientY;
+            const viewportW = window.innerWidth;
+            const viewportH = window.innerHeight;
+            const offset = 12; // Distance from cursor
+            const tooltipW = 180; // Approximate tooltip width
+            const tooltipH = 100; // Approximate tooltip height
+
+            // Horizontal positioning (viewport-relative)
+            let posX;
+            if (clientX + offset + tooltipW > viewportW) {
+                // Near right edge, show to the left of cursor
+                posX = clientX - offset - tooltipW;
+            } else {
+                posX = clientX + offset;
+            }
+
+            // Vertical positioning (viewport-relative)
+            let posY;
+            if (clientY + offset + tooltipH > viewportH) {
+                // Near bottom, show above cursor
+                posY = clientY - offset - tooltipH;
+            } else {
+                posY = clientY + offset;
+            }
+
+            // Clamp to ensure tooltip stays in viewport
+            posX = Math.max(5, Math.min(posX, viewportW - tooltipW - 5));
+            posY = Math.max(5, Math.min(posY, viewportH - tooltipH - 5));
+
+            ui.tooltip.style.left = posX + "px";
+            ui.tooltip.style.top = posY + "px";
+            ui.tooltip.style.position = "fixed"; // Use fixed positioning for viewport-relative
+            ui.tooltip.classList.add("on");
+
+            // Show connector lines
+            charts.main.gConn.selectAll("*").remove();
+
+            const dom = computeBaseDomains();
+            const scales = buildScales(dom);
+
+            const xScale = d.sex === "M" ? scales.xM : scales.xF;
+            const cx = xScale(d.birthBin);
+            const cy = scales.y(d.ratingBin);
+
+            // Connector to top histogram
+            charts.main.gConn.append("line")
+                .attr("class", "connector on")
+                .attr("x1", cx)
+                .attr("y1", cy)
+                .attr("x2", cx)
+                .attr("y2", -config.mainMargin.top);
+
+            // Connector to right histogram
+            charts.main.gConn.append("line")
+                .attr("class", "connector on")
+                .attr("x1", cx)
+                .attr("y1", cy)
+                .attr("x2", charts.main.plotW)
+                .attr("y2", cy);
+        }
+
+        function handleBubbleLeave(event, d) {
+            state.hoverKey = null;
+
+            d3.select(event.target)
+                .transition().duration(150)
+                .attr("transform", "scale(1)");
+
+            ui.tooltip.classList.remove("on");
+            charts.main.gConn.selectAll("*").remove();
+        }
+
+        /* =========================
+           UPDATE
+        ========================= */
+        function update(animate = true) {
+            ui.yearReadout.textContent = state.currentYear;
+
+            const players = filterPlayers(state.currentYear);
+            const ghosts = ghostPlayers(state.currentYear);
+            const cohorts = aggregateCohorts(players);
+            const ghostCohorts = aggregateCohorts(ghosts);
+
+            // For histograms, use unfiltered data (ignore cohort selections) so all bars stay visible
+            const unfilteredPlayers = state.raw.filter(d => d.peak_year <= state.currentYear && state.visibleSex.has(d.sex));
+            const unfilteredCohorts = aggregateCohorts(unfilteredPlayers);
+
+            const dom = computeBaseDomains();
+            const scales = buildScales(dom);
+
+            // Update axes
+            if (state.splitView && state.visibleSex.has("M") && state.visibleSex.has("F")) {
+                charts.main.xAxis.style("display", "none");
+                charts.main.xAxisL.style("display", null)
+                    .call(d3.axisBottom(scales.xM).ticks(5).tickFormat(d3.format("d")));
+                charts.main.xAxisR.style("display", null)
+                    .call(d3.axisBottom(scales.xF).ticks(5).tickFormat(d3.format("d")));
+            } else {
+                charts.main.xAxis.style("display", null)
+                    .call(d3.axisBottom(scales.xM).ticks(10).tickFormat(d3.format("d")));
+                charts.main.xAxisL.style("display", "none");
+                charts.main.xAxisR.style("display", "none");
+            }
+
+            charts.main.yAxis.call(d3.axisLeft(scales.y).ticks(10));
+
+            charts.main.gridX.call(d3.axisBottom(scales.xM).ticks(10).tickSize(-charts.main.plotH).tickFormat(""));
+            charts.main.gridY.call(d3.axisLeft(scales.y).ticks(10).tickSize(-charts.main.plotW).tickFormat(""));
+
+            renderDensityContours(players, scales);
+            renderGapArea(players, dom);
+            renderTrendLines(cohorts, scales);
+            renderBubbles(cohorts, ghostCohorts, dom, scales);
+            // Use unfiltered cohorts for histograms so all bars remain visible for multi-selection
+            renderTopHist(unfilteredCohorts, scales);
+            renderRightHist(unfilteredCohorts, dom, scales);
+        }
+
+        /* =========================
+           CONTROLS
+        ========================= */
+        ui.playBtn.onclick = () => {
+            if (state.playing) {
+                state.playing = false;
+                clearInterval(state.timer);
+                ui.playBtn.textContent = "Play";
+            } else {
+                state.playing = true;
+                ui.playBtn.textContent = "Pause";
+                state.timer = setInterval(() => {
+                    if (state.currentYear >= config.maxYear) {
+                        state.currentYear = config.minYear;
+                    } else {
+                        state.currentYear++;
+                    }
+                    ui.yearSlider.value = state.currentYear;
+                    update(true);
+                }, config.playStepMs);
+            }
+        };
+
+        ui.yearSlider.oninput = (e) => {
+            state.currentYear = +e.target.value;
+            update(false);
+        };
+
+        ui.splitBtn.onclick = () => {
+            state.splitView = !state.splitView;
+            ui.splitBtn.classList.toggle("active", state.splitView);
+            update(false);
+        };
+
+        ui.legendM.onclick = () => {
+            if (state.visibleSex.has("M")) {
+                state.visibleSex.delete("M");
+            } else {
+                state.visibleSex.add("M");
+            }
+            ui.legendM.classList.toggle("off", !state.visibleSex.has("M"));
+            update(false);
+        };
+
+        ui.legendF.onclick = () => {
+            if (state.visibleSex.has("F")) {
+                state.visibleSex.delete("F");
+            } else {
+                state.visibleSex.add("F");
+            }
+            ui.legendF.classList.toggle("off", !state.visibleSex.has("F"));
+            update(false);
+        };
+
+        ui.infoBtn.onclick = () => {
+            ui.legendPanel.classList.toggle("on");
+            ui.infoBtn.classList.toggle("active");
+        };
+
+        ui.countryFilter.onchange = (e) => {
+            state.selectedCountry = e.target.value;
+            update(false);
+        };
+
+        ui.cohortSizeInput.oninput = (e) => {
+            const newSize = Math.max(1, Math.min(50, +e.target.value));
+            state.birthBinSize = newSize;
+
+            // Update axis label
+            if (charts.main.xLabel) {
+                charts.main.xLabel.text(`Birth year (${newSize}-year cohorts)`);
+            }
+
+            update(false);
+        };
+
+        ui.clearSelectionsBtn.onclick = () => {
+            state.selectedBirthBins.clear();
+            state.selectedRatingBins.clear();
+            updateCohortSelectionDisplay();
+            update(false);
+        };
+
+        /* =========================
+           INIT
+        ========================= */
+        async function init() {
+            state.raw = await loadData();
+
+            // Auto-detect min and max years from data
+            const allYears = state.raw.map(d => d.peak_year);
+            const minYear = Math.floor(d3.min(allYears));
+            const maxYear = Math.ceil(d3.max(allYears));
+
+            // Update config and slider
+            config.minYear = minYear;
+            config.maxYear = maxYear;
+            state.currentYear = maxYear;
+
+            ui.yearSlider.min = minYear;
+            ui.yearSlider.max = maxYear;
+            ui.yearSlider.value = maxYear;
+            ui.yearReadout.textContent = maxYear;
+
+            // Populate country filter
+            const countries = [...new Set(state.raw.map(d => d.fed))].sort();
+            countries.forEach(fed => {
+                const option = document.createElement("option");
+                option.value = fed;
+                option.textContent = fed;
+                ui.countryFilter.appendChild(option);
+            });
+
+            mount();
+            update(false);
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

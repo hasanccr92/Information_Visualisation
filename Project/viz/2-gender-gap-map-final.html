@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gender Rating Gap Across Countries</title>
+    <script src="../vendor/d3-7.8.5/dist/d3.min.js"></script>
+    <script src="https://unpkg.com/topojson-client@3"></script>
+    <style>
+        :root {
+            --male-color: #2563eb;
+            --female-color: #dc2626;
+            --parity-color: #f8fafc;
+            --ink: #1e293b;
+            --muted: #64748b;
+            --panel: #ffffff;
+            --bg: #f1f5f9;
+            --stroke: #e2e8f0;
+            --accent: #6366f1;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--ink);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--ink);
+            margin: 0 0 6px 0;
+        }
+
+        .subtitle {
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+
+        .controls-panel {
+            background: var(--panel);
+            border: 1px solid var(--stroke);
+            border-radius: 14px;
+            padding: 14px 20px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-group label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+        }
+
+        .play-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: var(--accent);
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+        }
+
+        .play-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .year-display {
+            font-size: 1.6rem;
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+            color: var(--ink);
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .slider-container {
+            flex: 1;
+            min-width: 180px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 5px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: var(--stroke);
+            border-radius: 3px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+
+        /* View Mode Buttons */
+        .view-modes {
+            display: flex;
+            gap: 4px;
+            background: var(--bg);
+            padding: 4px;
+            border-radius: 10px;
+        }
+
+        .view-btn {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .view-btn:hover {
+            color: var(--ink);
+        }
+
+        .view-btn.active {
+            background: var(--panel);
+            color: var(--accent);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .sort-btn {
+            padding: 8px 14px;
+            border: 1px solid var(--stroke);
+            background: var(--panel);
+            color: var(--ink);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .sort-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 16px;
+        }
+
+        .vis-container {
+            background: var(--panel);
+            border: 1px solid var(--stroke);
+            border-radius: 14px;
+            padding: 16px;
+            min-height: 580px;
+            position: relative;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .vis-help {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            font-size: 10px;
+            color: var(--muted);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 5px 8px;
+            border-radius: 5px;
+            border: 1px solid var(--stroke);
+        }
+
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--stroke);
+            border-radius: 12px;
+            padding: 14px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .card h3 {
+            margin: 0 0 10px 0;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--muted);
+            text-transform: uppercase;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--stroke);
+            font-size: 12px;
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            color: var(--muted);
+        }
+
+        .stat-value {
+            font-weight: 700;
+            color: var(--ink);
+        }
+
+        .stat-value.male {
+            color: var(--male-color);
+        }
+
+        .stat-value.female {
+            color: var(--female-color);
+        }
+
+        .legend-gradient {
+            height: 12px;
+            border-radius: 6px;
+            background: linear-gradient(90deg, var(--male-color) 0%, #f8fafc 50%, var(--female-color) 100%);
+            margin-bottom: 4px;
+        }
+
+        .legend-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 9px;
+            color: var(--muted);
+        }
+
+        .comparison-card {
+            max-height: 350px;
+            overflow-y: auto;
+        }
+
+        .selected-country {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background: var(--bg);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            position: relative;
+            border: 1px solid var(--stroke);
+            font-size: 12px;
+        }
+
+        .country-remove {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(220, 38, 38, 0.1);
+            color: var(--female-color);
+            font-size: 10px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .selected-country:hover .country-remove {
+            opacity: 1;
+        }
+
+        .country-info {
+            flex: 1;
+        }
+
+        .country-name {
+            font-weight: 700;
+            color: var(--ink);
+        }
+
+        .country-gap {
+            font-size: 16px;
+            font-weight: 800;
+        }
+
+        .country-details {
+            font-size: 10px;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+
+        .no-selection {
+            text-align: center;
+            padding: 16px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .clear-btn {
+            width: 100%;
+            padding: 8px;
+            border: 1px dashed var(--stroke);
+            background: transparent;
+            color: var(--muted);
+            border-radius: 6px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        .clear-btn:hover {
+            border-color: var(--female-color);
+            color: var(--female-color);
+        }
+
+        /* Map Styles */
+        .country-path {
+            stroke: #cbd5e1;
+            stroke-width: 0.5;
+            cursor: pointer;
+            transition: fill 0.3s;
+        }
+
+        .country-path:hover {
+            stroke: var(--ink);
+            stroke-width: 1.5;
+        }
+
+        .country-path.selected {
+            stroke: #f59e0b;
+            stroke-width: 2.5;
+        }
+
+        .country-path.no-data {
+            fill: #e2e8f0;
+            cursor: default;
+        }
+
+        /* Hexagon tiles for ranked/continental views */
+        .hex-group {
+            cursor: pointer;
+        }
+
+        .hex-group.selected .hex-shape {
+            stroke: #f59e0b;
+            stroke-width: 2;
+        }
+
+        .hex-group.dimmed {
+            opacity: 0.25;
+        }
+
+        .hex-shape {
+            stroke: #cbd5e1;
+            stroke-width: 1;
+            transition: fill 0.3s;
+        }
+
+        .hex-label {
+            font-size: 9px;
+            font-weight: 700;
+            fill: var(--ink);
+            text-anchor: middle;
+            pointer-events: none;
+        }
+
+        /* Ranked bar styles */
+        .bar-group {
+            cursor: pointer;
+            transition: transform 0.5s ease-out;
+        }
+
+        .bar-group:hover .bar-rect {
+            filter: brightness(1.1);
+        }
+
+        .bar-group.selected .bar-rect {
+            stroke: #f59e0b;
+            stroke-width: 2;
+        }
+
+        .bar-rect {
+            transition: width 0.5s, fill 0.3s;
+        }
+
+        .bar-label {
+            font-size: 10px;
+            fill: var(--ink);
+            font-weight: 600;
+        }
+
+        .bar-value {
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        /* Continental grid styles */
+        .continent-group {
+            transition: transform 0.5s ease-out;
+        }
+
+        .continent-label {
+            font-size: 11px;
+            font-weight: 700;
+            fill: var(--muted);
+            text-transform: uppercase;
+        }
+
+        .continent-box {
+            fill: none;
+            stroke: var(--stroke);
+            stroke-width: 1;
+            stroke-dasharray: 4, 2;
+            rx: 8;
+        }
+
+        .tooltip {
+            position: fixed;
+            pointer-events: none;
+            background: var(--panel);
+            border: 1px solid var(--stroke);
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 11px;
+            max-width: 220px;
+            opacity: 0;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: opacity 0.15s;
+        }
+
+        .tooltip.visible {
+            opacity: 1;
+        }
+
+        .tooltip-header {
+            font-weight: 700;
+            margin-bottom: 6px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--stroke);
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .loading-spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid var(--stroke);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @media (max-width: 1100px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+
+            .side-panel {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+
+            .card {
+                flex: 1;
+                min-width: 260px;
+            }
+        }
+
+        #infoBtn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--ink);
+            color: white;
+            border: none;
+            font-size: 20px;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            z-index: 50;
+            transition: transform 0.2s, background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #infoBtn:hover {
+            transform: scale(1.1);
+            background: #374151;
+        }
+
+        #infoBtn.active {
+            background: var(--accent);
+        }
+
+        #legendPanel {
+            position: absolute;
+            bottom: 80px;
+            right: 20px;
+            background: white;
+            border: 1px solid var(--stroke);
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 380px;
+            max-height: 70vh;
+            overflow-y: auto;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+            transform: translateY(20px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s, transform 0.2s;
+            z-index: 100;
+        }
+
+        #legendPanel.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: all;
+        }
+
+        #legendPanel h2 {
+            margin: 0 0 16px 0;
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--ink);
+        }
+
+        #legendPanel h3 {
+            margin: 16px 0 8px 0;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--ink);
+            border-bottom: 1px solid var(--stroke);
+            padding-bottom: 4px;
+        }
+
+        .guide-item {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+            font-size: 13px;
+            color: var(--muted);
+            line-height: 1.4;
+        }
+
+        .guide-icon {
+            font-size: 16px;
+            min-width: 24px;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Gender Rating Gap Across Countries</h1>
+            <p class="subtitle">How does the rating gap between genders vary across countries and change over time?</p>
+        </header>
+
+        <div class="controls-panel">
+            <div class="control-group">
+                <button class="play-btn" id="playBtn" title="Play/Pause">▶</button>
+                <div class="year-display" id="yearDisplay">2015</div>
+            </div>
+
+            <div class="slider-container control-group">
+                <label>Year</label>
+                <input type="range" id="yearSlider" min="2015" max="2025" value="2015" step="1">
+            </div>
+
+            <div class="view-modes">
+                <button class="view-btn active" id="mapViewBtn" data-view="map">🗺️ Map</button>
+                <button class="view-btn" id="rankedViewBtn" data-view="ranked">📊 Ranked</button>
+                <button class="view-btn" id="continentViewBtn" data-view="continental">🌍 Continental</button>
+            </div>
+
+            <div class="control-group" id="sortControl" style="display: none;">
+                <label>Sort</label>
+                <button class="sort-btn" id="sortBtn" title="Toggle sort order">♂ Male Advantage First</button>
+            </div>
+
+            <div class="control-group">
+                <label>Filter</label>
+                <select id="continentFilter">
+                    <option value="">All</option>
+                    <option value="Europe">Europe</option>
+                    <option value="Asia">Asia</option>
+                    <option value="Americas">Americas</option>
+                    <option value="Africa">Africa</option>
+                    <option value="Oceania">Oceania</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="vis-container" id="visContainer">
+                <div class="loading" id="loading">
+                    <div class="loading-spinner"></div>
+                    <div>Loading data...</div>
+                </div>
+                <svg id="visSvg" style="display: none;"></svg>
+                <div class="vis-help" id="visHelp">Click countries to compare</div>
+            </div>
+
+            <div class="side-panel">
+                <div class="card comparison-card">
+                    <h3>Selected Countries</h3>
+                    <div id="comparisonContainer">
+                        <div class="no-selection">Click countries to compare</div>
+                    </div>
+                    <button class="clear-btn" id="clearSelection" style="display: none;">Clear All</button>
+                </div>
+
+                <div class="card">
+                    <h3 id="statsTitle">Global Statistics</h3>
+                    <div class="stat-row">
+                        <span class="stat-label">Avg. Gap</span>
+                        <span class="stat-value" id="globalGap">+156</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Male Avg.</span>
+                        <span class="stat-value male" id="maleAvg">2145</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Female Avg.</span>
+                        <span class="stat-value female" id="femaleAvg">1989</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Countries</span>
+                        <span class="stat-value" id="countryCount">87</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Legend</h3>
+                    <div class="legend-gradient"></div>
+                    <div class="legend-labels">
+                        <span>♂ Male +300</span>
+                        <span>Parity</span>
+                        <span>Female +300 ♀</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <button id="infoBtn" title="Show/Hide Guide">ℹ</button>
+
+    <div id="legendPanel">
+        <h2>Visualization Guide</h2>
+
+        <h3>View Modes</h3>
+        <div class="guide-item">
+            <div class="guide-icon">🗺️</div>
+            <div><strong>Map View:</strong> Geographic distribution. Good for regional patterns.</div>
+        </div>
+        <div class="guide-item">
+            <div class="guide-icon">📊</div>
+            <div><strong>Ranked View:</strong> Ordered bar list. Best for comparing magnitude of gaps.</div>
+        </div>
+        <div class="guide-item">
+            <div class="guide-icon">🌍</div>
+            <div><strong>Continental View:</strong> Abstract hexagon grid grouped by continent. Good for reducing
+                clutter.</div>
+        </div>
+
+        <h3>Interactions</h3>
+        <div class="guide-item">
+            <div class="guide-icon">👆</div>
+            <div><strong>Select Countries:</strong> Click any country/bar/tile to add it to the comparison panel. Click
+                again to remove.</div>
+        </div>
+        <div class="guide-item">
+            <div class="guide-icon">⏳</div>
+            <div><strong>Timeline:</strong> Drag the slider or press Play to see how the gender gap evolves from 2015 to
+                2025.</div>
+        </div>
+        <div class="guide-item">
+            <div class="guide-icon">📈</div>
+            <div><strong>Sparklines:</strong> Selected countries show a historical trendline (2015-2025) in the side
+                panel.</div>
+        </div>
+
+        <h3>Color Encoding</h3>
+        <div class="guide-item">
+            <div class="guide-icon">🎨</div>
+            <div>
+                <span style="color:var(--male-color); font-weight:700;">Blue</span> = Male-favored gap (+)<br>
+                <span style="color:var(--female-color); font-weight:700;">Red</span> = Female-favored gap (-)<br>
+                <span style="color:var(--muted);">White</span> = Parity (~0)
+            </div>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+        const CONFIG = {
+            animationSpeed: 800,
+            transitionDuration: 600,
+            hexRadius: 27,
+            minPlayersPerGender: 3,
+            fedToIso: {
+                'USA': '840', 'RUS': '643', 'CHN': '156', 'IND': '356', 'GER': '276',
+                'FRA': '250', 'ENG': '826', 'ESP': '724', 'ITA': '380', 'NED': '528',
+                'POL': '616', 'UKR': '804', 'CZE': '203', 'HUN': '348', 'SRB': '688',
+                'CRO': '191', 'SLO': '705', 'AUT': '040', 'SUI': '756', 'BEL': '056',
+                'GRE': '300', 'ROU': '642', 'BUL': '100', 'SWE': '752', 'NOR': '578',
+                'DEN': '208', 'FIN': '246', 'ISL': '352', 'SCO': '826', 'IRL': '372',
+                'POR': '620', 'LTU': '440', 'LAT': '428', 'EST': '233', 'BLR': '112',
+                'MDA': '498', 'ARM': '051', 'GEO': '268', 'AZE': '031', 'SVK': '703',
+                'BIH': '070', 'MKD': '807', 'ALB': '008', 'MNE': '499', 'LUX': '442',
+                'MLT': '470', 'CYP': '196', 'TUR': '792', 'ISR': '376', 'KAZ': '398',
+                'UZB': '860', 'MGL': '496', 'KOR': '410', 'JPN': '392', 'INA': '360',
+                'MAS': '458', 'SGP': '702', 'THA': '764', 'VIE': '704', 'PHI': '608',
+                'IRI': '364', 'IRQ': '368', 'SYR': '760', 'JOR': '400', 'LBN': '422',
+                'UAE': '784', 'KUW': '414', 'QAT': '634', 'BRN': '048', 'KGZ': '417',
+                'BAN': '050', 'SRI': '144', 'PAK': '586', 'AFG': '004', 'NEP': '524',
+                'CAN': '124', 'MEX': '484', 'BRA': '076', 'ARG': '032', 'COL': '170',
+                'PER': '604', 'CHI': '152', 'VEN': '862', 'ECU': '218', 'BOL': '068',
+                'PAR': '600', 'URU': '858', 'CUB': '192', 'DOM': '214', 'PUR': '630',
+                'CRC': '188', 'PAN': '591', 'GUA': '320', 'HON': '340', 'ESA': '222',
+                'NCA': '558', 'JAM': '388', 'TRI': '780', 'RSA': '710', 'EGY': '818',
+                'MAR': '504', 'TUN': '788', 'ALG': '012', 'NGR': '566', 'KEN': '404',
+                'UGA': '800', 'ZIM': '716', 'ZAM': '894', 'BOT': '072', 'NAM': '516',
+                'ANG': '024', 'MOZ': '508', 'AUS': '036', 'NZL': '554', 'FIJ': '242'
+            },
+            continentMap: {
+                'RUS': 'Europe', 'GER': 'Europe', 'FRA': 'Europe', 'ENG': 'Europe', 'ESP': 'Europe',
+                'ITA': 'Europe', 'NED': 'Europe', 'POL': 'Europe', 'UKR': 'Europe', 'CZE': 'Europe',
+                'HUN': 'Europe', 'SRB': 'Europe', 'CRO': 'Europe', 'SLO': 'Europe', 'AUT': 'Europe',
+                'SUI': 'Europe', 'BEL': 'Europe', 'GRE': 'Europe', 'ROU': 'Europe', 'BUL': 'Europe',
+                'SWE': 'Europe', 'NOR': 'Europe', 'DEN': 'Europe', 'FIN': 'Europe', 'ISL': 'Europe',
+                'SCO': 'Europe', 'IRL': 'Europe', 'POR': 'Europe', 'LTU': 'Europe', 'LAT': 'Europe',
+                'EST': 'Europe', 'BLR': 'Europe', 'MDA': 'Europe', 'ARM': 'Europe', 'GEO': 'Europe',
+                'AZE': 'Europe', 'SVK': 'Europe', 'BIH': 'Europe', 'MKD': 'Europe', 'ALB': 'Europe',
+                'MNE': 'Europe', 'LUX': 'Europe', 'MLT': 'Europe', 'CYP': 'Europe', 'TUR': 'Europe',
+                'IND': 'Asia', 'CHN': 'Asia', 'PHI': 'Asia', 'VIE': 'Asia', 'IRI': 'Asia',
+                'ISR': 'Asia', 'KAZ': 'Asia', 'UZB': 'Asia', 'MGL': 'Asia', 'KOR': 'Asia',
+                'JPN': 'Asia', 'INA': 'Asia', 'MAS': 'Asia', 'SGP': 'Asia', 'THA': 'Asia',
+                'SRI': 'Asia', 'BAN': 'Asia', 'PAK': 'Asia', 'IRQ': 'Asia', 'SYR': 'Asia',
+                'JOR': 'Asia', 'LBN': 'Asia', 'UAE': 'Asia', 'KUW': 'Asia', 'QAT': 'Asia',
+                'BRN': 'Asia', 'KGZ': 'Asia', 'AFG': 'Asia', 'NEP': 'Asia',
+                'USA': 'Americas', 'CAN': 'Americas', 'MEX': 'Americas', 'BRA': 'Americas',
+                'ARG': 'Americas', 'COL': 'Americas', 'PER': 'Americas', 'CHI': 'Americas',
+                'VEN': 'Americas', 'ECU': 'Americas', 'BOL': 'Americas', 'PAR': 'Americas',
+                'URU': 'Americas', 'CUB': 'Americas', 'DOM': 'Americas', 'PUR': 'Americas',
+                'CRC': 'Americas', 'PAN': 'Americas', 'GUA': 'Americas', 'HON': 'Americas',
+                'ESA': 'Americas', 'NCA': 'Americas', 'JAM': 'Americas', 'TRI': 'Americas',
+                'RSA': 'Africa', 'EGY': 'Africa', 'MAR': 'Africa', 'TUN': 'Africa', 'ALG': 'Africa',
+                'NGR': 'Africa', 'KEN': 'Africa', 'UGA': 'Africa', 'ZIM': 'Africa', 'ZAM': 'Africa',
+                'BOT': 'Africa', 'NAM': 'Africa', 'ANG': 'Africa', 'MOZ': 'Africa',
+                'AUS': 'Oceania', 'NZL': 'Oceania', 'FIJ': 'Oceania'
+            },
+            countryNames: {
+                'USA': 'United States', 'RUS': 'Russia', 'CHN': 'China', 'IND': 'India', 'GER': 'Germany',
+                'FRA': 'France', 'ENG': 'England', 'ESP': 'Spain', 'ITA': 'Italy', 'NED': 'Netherlands',
+                'POL': 'Poland', 'UKR': 'Ukraine', 'CZE': 'Czechia', 'HUN': 'Hungary', 'SRB': 'Serbia',
+                'CRO': 'Croatia', 'SLO': 'Slovenia', 'AUT': 'Austria', 'SUI': 'Switzerland', 'BEL': 'Belgium',
+                'GRE': 'Greece', 'ROU': 'Romania', 'BUL': 'Bulgaria', 'SWE': 'Sweden', 'NOR': 'Norway',
+                'DEN': 'Denmark', 'FIN': 'Finland', 'ISL': 'Iceland', 'SCO': 'Scotland', 'IRL': 'Ireland',
+                'POR': 'Portugal', 'LTU': 'Lithuania', 'LAT': 'Latvia', 'EST': 'Estonia', 'BLR': 'Belarus',
+                'MDA': 'Moldova', 'ARM': 'Armenia', 'GEO': 'Georgia', 'AZE': 'Azerbaijan', 'SVK': 'Slovakia',
+                'BIH': 'Bosnia', 'MKD': 'N. Macedonia', 'ALB': 'Albania', 'MNE': 'Montenegro', 'LUX': 'Luxembourg',
+                'MLT': 'Malta', 'CYP': 'Cyprus', 'TUR': 'Turkey', 'ISR': 'Israel', 'KAZ': 'Kazakhstan',
+                'UZB': 'Uzbekistan', 'MGL': 'Mongolia', 'KOR': 'S. Korea', 'JPN': 'Japan', 'INA': 'Indonesia',
+                'MAS': 'Malaysia', 'SGP': 'Singapore', 'THA': 'Thailand', 'VIE': 'Vietnam', 'PHI': 'Philippines',
+                'IRI': 'Iran', 'IRQ': 'Iraq', 'SYR': 'Syria', 'JOR': 'Jordan', 'LBN': 'Lebanon',
+                'UAE': 'UAE', 'KUW': 'Kuwait', 'QAT': 'Qatar', 'BRN': 'Bahrain', 'KGZ': 'Kyrgyzstan',
+                'BAN': 'Bangladesh', 'SRI': 'Sri Lanka', 'PAK': 'Pakistan', 'AFG': 'Afghanistan', 'NEP': 'Nepal',
+                'CAN': 'Canada', 'MEX': 'Mexico', 'BRA': 'Brazil', 'ARG': 'Argentina', 'COL': 'Colombia',
+                'PER': 'Peru', 'CHI': 'Chile', 'VEN': 'Venezuela', 'ECU': 'Ecuador', 'BOL': 'Bolivia',
+                'PAR': 'Paraguay', 'URU': 'Uruguay', 'CUB': 'Cuba', 'DOM': 'Dominican Rep.', 'PUR': 'Puerto Rico',
+                'CRC': 'Costa Rica', 'PAN': 'Panama', 'GUA': 'Guatemala', 'HON': 'Honduras', 'ESA': 'El Salvador',
+                'NCA': 'Nicaragua', 'JAM': 'Jamaica', 'TRI': 'Trinidad',
+                'RSA': 'S. Africa', 'EGY': 'Egypt', 'MAR': 'Morocco', 'TUN': 'Tunisia', 'ALG': 'Algeria',
+                'NGR': 'Nigeria', 'KEN': 'Kenya', 'UGA': 'Uganda', 'ZIM': 'Zimbabwe', 'ZAM': 'Zambia',
+                'BOT': 'Botswana', 'NAM': 'Namibia', 'ANG': 'Angola', 'MOZ': 'Mozambique',
+                'AUS': 'Australia', 'NZL': 'New Zealand', 'FIJ': 'Fiji',
+                'FID': 'FIDE (No Nation)'
+            },
+            continents: ['Europe', 'Asia', 'Americas', 'Africa', 'Oceania']
+        };
+
+        const state = {
+            players: [],
+            yearlyData: new Map(),
+            worldData: null,
+            currentYear: 2015,
+            isPlaying: false,
+            playInterval: null,
+            viewMode: 'map', // 'map', 'ranked', 'continental'
+            filterContinent: '',
+            selectedCountries: new Set(),
+            isoToFed: new Map(),
+            width: 0,
+            height: 0,
+            sortOrder: 'maleFirst' // 'maleFirst' or 'femaleFirst'
+        };
+
+        function getGapColor(gap, maxGap = 300) {
+            const n = Math.max(-1, Math.min(1, gap / maxGap));
+            return n > 0 ? d3.interpolateRgb('#f8fafc', '#2563eb')(n) : d3.interpolateRgb('#f8fafc', '#dc2626')(-n);
+        }
+
+        function formatGap(gap) {
+            return gap > 0 ? `+${Math.round(gap)}` : Math.round(gap).toString();
+        }
+
+        function hexPoints(cx, cy, r) {
+            return [0, 60, 120, 180, 240, 300].map(a => {
+                const rad = a * Math.PI / 180;
+                return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
+            });
+        }
+
+        async function loadData() {
+            try {
+                const worldResponse = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+                state.worldData = await worldResponse.json();
+
+                Object.entries(CONFIG.fedToIso).forEach(([fed, iso]) => state.isoToFed.set(iso, fed));
+
+                const players = await d3.tsv("../data/players.tsv", d => {
+                    const month = (d.month || "").trim();
+                    if (!month) return null;
+                    const year = parseInt(month.slice(0, 4));
+                    const rating = +d.max_rating;
+                    const sex = (d.sex || "").trim();
+                    const fed = (d.fed || "").trim();
+                    if (!sex || !fed || isNaN(rating) || isNaN(year) || (sex !== 'M' && sex !== 'F')) return null;
+                    return { fed, sex, rating, peakYear: year };
+                });
+
+                state.players = players.filter(d => d !== null);
+                console.log(`Loaded ${state.players.length} players`);
+
+                processData();
+                initVis();
+            } catch (error) {
+                console.error(error);
+                document.getElementById('loading').innerHTML = `<div style="color:#dc2626;">Error: ${error.message}</div>`;
+            }
+        }
+
+        function processData() {
+            const years = d3.range(2015, 2026);
+            const byCountry = d3.group(state.players, d => d.fed);
+
+            years.forEach(year => {
+                const yearData = new Map();
+                byCountry.forEach((players, country) => {
+                    // Skip FIDE (not a real country)
+                    if (country === 'FID') return;
+                    const active = players.filter(p => p.peakYear <= year);
+                    const males = active.filter(p => p.sex === 'M');
+                    const females = active.filter(p => p.sex === 'F');
+
+                    if (males.length >= CONFIG.minPlayersPerGender && females.length >= CONFIG.minPlayersPerGender) {
+                        const maleAvg = d3.mean(males, d => d.rating);
+                        const femaleAvg = d3.mean(females, d => d.rating);
+                        yearData.set(country, {
+                            country,
+                            name: CONFIG.countryNames[country] || country,
+                            continent: CONFIG.continentMap[country] || 'Other',
+                            maleCount: males.length, femaleCount: females.length,
+                            maleAvg, femaleAvg, gap: maleAvg - femaleAvg
+                        });
+                    }
+                });
+                state.yearlyData.set(year, yearData);
+            });
+        }
+
+        function initVis() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('visSvg').style.display = 'block';
+
+            const container = document.getElementById('visContainer');
+            state.width = container.clientWidth - 32;
+            state.height = 550;
+
+            d3.select("#visSvg").attr("width", state.width).attr("height", state.height);
+
+            setupControls();
+            renderView();
+        }
+
+        function getFilteredData() {
+            const yearData = state.yearlyData.get(state.currentYear);
+            if (!yearData) return [];
+            let data = Array.from(yearData.values());
+            if (state.filterContinent) data = data.filter(d => d.continent === state.filterContinent);
+            return data;
+        }
+
+        function renderView() {
+            const svg = d3.select("#visSvg");
+            svg.selectAll("*").remove();
+
+            if (state.viewMode === 'map') renderMapView(svg);
+            else if (state.viewMode === 'ranked') renderRankedView(svg);
+            else renderContinentalView(svg);
+
+            updateStats();
+            updateComparison();
+            updateHelp();
+        }
+
+        function renderMapView(svg) {
+            const projection = d3.geoNaturalEarth1().scale(state.width / 5.5).translate([state.width / 2, state.height / 2]);
+            const path = d3.geoPath().projection(projection);
+            const countries = topojson.feature(state.worldData, state.worldData.objects.countries);
+            const yearData = state.yearlyData.get(state.currentYear);
+
+            svg.append("g").attr("class", "map-layer")
+                .selectAll("path")
+                .data(countries.features)
+                .enter()
+                .append("path")
+                .attr("class", d => {
+                    const fed = state.isoToFed.get(d.id);
+                    const has = fed && yearData && yearData.has(fed);
+                    const sel = state.selectedCountries.has(fed);
+                    return `country-path ${has ? '' : 'no-data'} ${sel ? 'selected' : ''}`;
+                })
+                .attr("d", path)
+                .attr("data-fed", d => state.isoToFed.get(d.id) || '')
+                .attr("fill", d => {
+                    const fed = state.isoToFed.get(d.id);
+                    if (fed && yearData && yearData.has(fed)) return getGapColor(yearData.get(fed).gap);
+                    return '#e2e8f0';
+                })
+                .on("click", handleClick)
+                .on("mouseenter", handleHover)
+                .on("mousemove", handleMove)
+                .on("mouseleave", handleLeave);
+
+            const zoom = d3.zoom().scaleExtent([1, 8]).on("zoom", e => svg.select(".map-layer").attr("transform", e.transform));
+            svg.call(zoom);
+        }
+
+        function renderRankedView(svg) {
+            // Sort based on state.sortOrder
+            const data = getFilteredData().sort((a, b) => {
+                return state.sortOrder === 'maleFirst' ? (b.gap - a.gap) : (a.gap - b.gap);
+            });
+            const barHeight = 24;
+            const margin = { left: 80, right: 120, top: 20, bottom: 20 };
+            const maxGap = d3.max(data, d => Math.abs(d.gap)) || 300;
+
+            // Dynamic height to show ALL countries
+            const totalHeight = margin.top + data.length * barHeight + margin.bottom;
+            svg.attr("height", totalHeight);
+
+            const xScale = d3.scaleLinear().domain([-maxGap, maxGap]).range([margin.left, state.width - margin.right]);
+            const centerX = xScale(0);
+
+            const g = svg.append("g").attr("class", "ranked-layer");
+
+            // Zero line
+            g.append("line").attr("x1", centerX).attr("x2", centerX).attr("y1", margin.top).attr("y2", margin.top + data.length * barHeight)
+                .attr("stroke", "#cbd5e1").attr("stroke-width", 1).attr("stroke-dasharray", "4,2");
+
+            const bars = g.selectAll(".bar-group").data(data, d => d.country);
+
+            const barEnter = bars.enter().append("g")
+                .attr("class", d => `bar-group ${state.selectedCountries.has(d.country) ? 'selected' : ''}`)
+                .attr("data-fed", d => d.country)
+                .attr("transform", (d, i) => `translate(0, ${margin.top + i * barHeight})`)
+                .on("click", handleClick)
+                .on("mouseenter", handleHover)
+                .on("mousemove", handleMove)
+                .on("mouseleave", handleLeave);
+
+            barEnter.append("text").attr("class", "bar-label").attr("x", margin.left - 8).attr("y", barHeight / 2 + 3)
+                .attr("text-anchor", "end").text(d => d.country);
+
+            barEnter.append("rect").attr("class", "bar-rect").attr("y", 4).attr("height", barHeight - 8)
+                .attr("x", d => d.gap > 0 ? centerX : xScale(d.gap))
+                .attr("width", d => Math.abs(xScale(d.gap) - centerX))
+                .attr("fill", d => getGapColor(d.gap))
+                .attr("rx", 3);
+
+            barEnter.append("text").attr("class", "bar-value").attr("y", barHeight / 2 + 3)
+                .attr("x", d => d.gap > 0 ? xScale(d.gap) + 6 : xScale(d.gap) - 6)
+                .attr("text-anchor", d => d.gap > 0 ? "start" : "end")
+                .attr("fill", d => d.gap > 0 ? "#2563eb" : "#dc2626")
+                .text(d => formatGap(d.gap));
+        }
+
+        function renderContinentalView(svg) {
+            const data = getFilteredData();
+            const continents = CONFIG.continents.filter(c => data.some(d => d.continent === c));
+
+            const cols = Math.min(3, continents.length);
+            const rows = Math.ceil(continents.length / cols);
+            const boxWidth = (state.width - 40) / cols;
+            const boxHeight = (state.height - 40) / rows;
+
+            const g = svg.append("g").attr("class", "continental-layer").attr("transform", "translate(20, 20)");
+
+            continents.forEach((continent, idx) => {
+                const col = idx % cols;
+                const row = Math.floor(idx / cols);
+                const x = col * boxWidth;
+                const y = row * (boxHeight + 80);
+
+                const cg = g.append("g").attr("class", "continent-group").attr("transform", `translate(${x}, ${y})`);
+
+                // Box background
+                cg.append("rect").attr("class", "continent-box").attr("width", boxWidth - 10).attr("height", boxHeight - 10);
+
+                // Label
+                cg.append("text").attr("class", "continent-label").attr("x", 10).attr("y", 20).text(continent);
+
+                // Hexagons
+                const countryData = data.filter(d => d.continent === continent).sort((a, b) => b.gap - a.gap);
+                const hexR = CONFIG.hexRadius;
+                const hexW = hexR * 2;
+                const hexH = hexR * 1.73;
+                const hexCols = Math.floor((boxWidth - 30) / (hexW * 0.85 + 8));
+
+                countryData.forEach((d, i) => {
+                    const hCol = i % hexCols;
+                    const hRow = Math.floor(i / hexCols);
+                    const hx = 25 + hCol * (hexW * 0.85 + 8) + (hRow % 2) * (hexW * 0.425);
+                    const hy = 45 + hRow * (hexH * 0.7 + 8);
+
+                    const hg = cg.append("g")
+                        .attr("class", `hex-group ${state.selectedCountries.has(d.country) ? 'selected' : ''}`)
+                        .attr("data-fed", d.country)
+                        .attr("transform", `translate(${hx}, ${hy})`)
+                        .on("click", handleClick)
+                        .on("mouseenter", handleHover)
+                        .on("mousemove", handleMove)
+                        .on("mouseleave", handleLeave);
+
+                    hg.append("polygon")
+                        .attr("class", "hex-shape")
+                        .attr("points", hexPoints(0, 0, hexR).map(p => p.join(",")).join(" "))
+                        .attr("fill", getGapColor(d.gap));
+
+                    hg.append("text").attr("class", "hex-label").attr("y", 3).text(d.country);
+                });
+            });
+        }
+
+        function updateStats() {
+            const data = getFilteredData();
+            if (data.length === 0) return;
+
+            // Update title based on filter
+            const title = state.filterContinent ? `${state.filterContinent} Statistics` : 'Global Statistics';
+            document.getElementById('statsTitle').textContent = title;
+
+            const maleAvg = d3.mean(data, d => d.maleAvg);
+            const femaleAvg = d3.mean(data, d => d.femaleAvg);
+            const gap = maleAvg - femaleAvg;
+
+            document.getElementById('globalGap').textContent = formatGap(gap);
+            document.getElementById('globalGap').className = `stat-value ${gap > 0 ? 'male' : 'female'}`;
+            document.getElementById('maleAvg').textContent = Math.round(maleAvg);
+            document.getElementById('femaleAvg').textContent = Math.round(femaleAvg);
+            document.getElementById('countryCount').textContent = data.length;
+        }
+
+        function updateComparison() {
+            const container = document.getElementById('comparisonContainer');
+            const clearBtn = document.getElementById('clearSelection');
+            const yearData = state.yearlyData.get(state.currentYear);
+
+            if (state.selectedCountries.size === 0) {
+                container.innerHTML = '<div class="no-selection">Click countries to compare</div>';
+                clearBtn.style.display = 'none';
+                return;
+            }
+
+            clearBtn.style.display = 'block';
+            let html = '';
+            state.selectedCountries.forEach(fed => {
+                const d = yearData ? yearData.get(fed) : null;
+                if (!d) return;
+                html += `
+                <div class="selected-country">
+                    <button class="country-remove" onclick="removeCountry('${fed}')">&times;</button>
+                    <div class="country-info">
+                        <div class="country-name">${d.name} (${fed})</div>
+                        <div class="country-gap" style="color: ${d.gap > 0 ? '#2563eb' : '#dc2626'}">${formatGap(d.gap)}</div>
+                        <div class="country-details">♂ ${Math.round(d.maleAvg)} (${d.maleCount}) • ♀ ${Math.round(d.femaleAvg)} (${d.femaleCount})</div>
+                        <svg class="country-sparkline" id="sparkline-${fed}" width="100%" height="40"></svg>
+                    </div>
+                </div>
+            `;
+            });
+            container.innerHTML = html;
+
+            // Draw sparklines for each selected country
+            state.selectedCountries.forEach(fed => drawSparkline(fed));
+        }
+
+        function drawSparkline(fed) {
+            const svg = d3.select(`#sparkline-${fed}`);
+            if (svg.empty()) return;
+
+            const width = svg.node().getBoundingClientRect().width || 200;
+            const height = 40;
+            const margin = { top: 5, right: 5, bottom: 5, left: 5 };
+
+            // Gather gap data for all years
+            const data = [];
+            for (let y = 2015; y <= 2025; y++) {
+                const yd = state.yearlyData.get(y);
+                if (yd && yd.has(fed)) {
+                    data.push({ year: y, gap: yd.get(fed).gap });
+                }
+            }
+            if (data.length < 2) return;
+
+            const x = d3.scaleLinear().domain([2015, 2025]).range([margin.left, width - margin.right]);
+            const maxGap = d3.max(data, d => Math.abs(d.gap)) || 200;
+            const y = d3.scaleLinear().domain([-maxGap * 1.1, maxGap * 1.1]).range([height - margin.bottom, margin.top]);
+
+            // Zero line (dashed)
+            svg.append("line")
+                .attr("x1", margin.left).attr("x2", width - margin.right)
+                .attr("y1", y(0)).attr("y2", y(0))
+                .attr("stroke", "#94a3b8")
+                .attr("stroke-width", 1)
+                .attr("stroke-dasharray", "3,3");
+
+            // Trendline
+            const line = d3.line()
+                .x(d => x(d.year))
+                .y(d => y(d.gap))
+                .curve(d3.curveMonotoneX);
+
+            svg.append("path")
+                .datum(data)
+                .attr("fill", "none")
+                .attr("stroke", data[data.length - 1].gap > 0 ? "#2563eb" : "#dc2626")
+                .attr("stroke-width", 2)
+                .attr("d", line);
+
+            // Current year marker
+            const current = data.find(d => d.year === state.currentYear);
+            if (current) {
+                svg.append("circle")
+                    .attr("cx", x(current.year))
+                    .attr("cy", y(current.gap))
+                    .attr("r", 4)
+                    .attr("fill", current.gap > 0 ? "#2563eb" : "#dc2626")
+                    .attr("stroke", "#fff")
+                    .attr("stroke-width", 1.5);
+            }
+        }
+
+        function updateHelp() {
+            const helps = {
+                map: 'Click countries to select • Scroll to zoom',
+                ranked: 'Bars sorted by gap • Click to select',
+                continental: 'Grouped by continent • Click hexagons to select'
+            };
+            document.getElementById('visHelp').textContent = helps[state.viewMode];
+        }
+
+        function handleClick(event, d) {
+            const fed = d3.select(this).attr("data-fed") || state.isoToFed.get(d?.id);
+            if (!fed) return;
+
+            const yearData = state.yearlyData.get(state.currentYear);
+            if (!yearData || !yearData.has(fed)) return;
+
+            if (state.selectedCountries.has(fed)) {
+                state.selectedCountries.delete(fed);
+            } else {
+                state.selectedCountries.add(fed);
+            }
+
+            // Update selected class
+            d3.selectAll("[data-fed]").classed("selected", function () {
+                return state.selectedCountries.has(d3.select(this).attr("data-fed"));
+            });
+            d3.selectAll(".country-path").classed("selected", function () {
+                return state.selectedCountries.has(d3.select(this).attr("data-fed"));
+            });
+
+            updateComparison();
+        }
+
+        function handleHover(event, d) {
+            const fed = d3.select(this).attr("data-fed") || state.isoToFed.get(d?.id);
+            const yearData = state.yearlyData.get(state.currentYear);
+            if (!fed || !yearData || !yearData.has(fed)) return;
+
+            const data = yearData.get(fed);
+            const tooltip = document.getElementById('tooltip');
+            tooltip.innerHTML = `
+            <div class="tooltip-header">${data.name} (${fed})</div>
+            <div>Gap: <b style="color:${data.gap > 0 ? '#2563eb' : '#dc2626'}">${formatGap(data.gap)}</b></div>
+            <div>♂ ${Math.round(data.maleAvg)} (${data.maleCount}) • ♀ ${Math.round(data.femaleAvg)} (${data.femaleCount})</div>
+        `;
+            tooltip.classList.add('visible');
+        }
+
+        function handleMove(event) {
+            const tooltip = document.getElementById('tooltip');
+            tooltip.style.left = `${Math.min(event.clientX + 12, window.innerWidth - 240)}px`;
+            tooltip.style.top = `${Math.min(event.clientY + 12, window.innerHeight - 100)}px`;
+        }
+
+        function handleLeave() {
+            document.getElementById('tooltip').classList.remove('visible');
+        }
+
+        function setupControls() {
+            document.getElementById('playBtn').addEventListener('click', togglePlay);
+
+            document.getElementById('yearSlider').addEventListener('input', function () {
+                state.currentYear = +this.value;
+                document.getElementById('yearDisplay').textContent = state.currentYear;
+                renderView();
+            });
+
+            document.getElementById('continentFilter').addEventListener('change', function () {
+                state.filterContinent = this.value;
+                renderView();
+            });
+
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    state.viewMode = this.dataset.view;
+
+                    // Show/hide sort control based on view mode
+                    document.getElementById('sortControl').style.display = state.viewMode === 'ranked' ? 'flex' : 'none';
+
+                    // Reset SVG height when leaving ranked view
+                    if (state.viewMode !== 'ranked') {
+                        d3.select("#visSvg").attr("height", state.height);
+                    }
+
+                    renderView();
+                    updateHelp();
+                });
+            });
+
+            document.getElementById('clearSelection').addEventListener('click', function () {
+                state.selectedCountries.clear();
+                d3.selectAll(".selected").classed("selected", false);
+                updateComparison();
+            });
+
+            document.getElementById('sortBtn').addEventListener('click', function () {
+                state.sortOrder = state.sortOrder === 'maleFirst' ? 'femaleFirst' : 'maleFirst';
+                this.textContent = state.sortOrder === 'maleFirst' ? '♂ Male Advantage First' : '♀ Female Advantage First';
+                renderView();
+            });
+
+            document.getElementById('infoBtn').addEventListener('click', function () {
+                this.classList.toggle('active');
+                document.getElementById('legendPanel').classList.toggle('visible');
+            });
+        }
+
+        function togglePlay() {
+            state.isPlaying = !state.isPlaying;
+            const btn = document.getElementById('playBtn');
+            if (state.isPlaying) {
+                btn.textContent = '⏸';
+                state.playInterval = setInterval(() => {
+                    state.currentYear++;
+                    if (state.currentYear > 2025) state.currentYear = 2015;
+                    document.getElementById('yearSlider').value = state.currentYear;
+                    document.getElementById('yearDisplay').textContent = state.currentYear;
+                    renderView();
+                }, CONFIG.animationSpeed);
+            } else {
+                btn.textContent = '▶';
+                clearInterval(state.playInterval);
+            }
+        }
+
+        window.removeCountry = function (fed) {
+            state.selectedCountries.delete(fed);
+            d3.selectAll("[data-fed='" + fed + "']").classed("selected", false);
+            d3.selectAll(".country-path[data-fed='" + fed + "']").classed("selected", false);
+            updateComparison();
+        };
+
+        loadData();
+    </script>
+</body>
+
+</html>
