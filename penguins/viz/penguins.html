@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Penguins Visualization</title>
+<style>
+  body { font-family: sans-serif; margin: 30px 50px; }
+  .legend g:hover { cursor: pointer; }
+  .hidden { opacity: 0.1; }
+  .axis-label { font-size: 12px; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Penguins Visualization</h1>
+<script src="../vendor/d3-7.8.5/dist/d3.js"></script>
+<script>
+Promise.all(
+  ['219', '220', '221'].map(number =>
+    d3.csv(`../data/table_${number}.csv`, d => ({
+      study: d['studyName'],
+      sample: +d['Sample Number'],
+      species: d['Species'].split(" ")[0],
+      region: d['Region'],
+      island: d['Island'],
+      stage: d['Stage'],
+      id: d['Individual ID'],
+      culmen_length: +d['Culmen Length (mm)'],
+      culmen_depth: +d['Culmen Depth (mm)'],
+      flipper_length: +d['Flipper Length (mm)'],
+      mass: +d['Body Mass (g)'],
+      sex: d['Sex'] ? d['Sex'].toLowerCase() : 'unknown'
+    }))
+  )
+).then(datasets => {
+  const data = d3.merge(datasets)
+    .filter(d => d.culmen_length > 0 && d.culmen_depth > 0 && d.mass > 0)
+    .filter(d => d.sex === 'male' || d.sex === 'female');
+
+  const margin = { top: 90, right: 220, bottom: 100, left: 100 };
+  const width = 800 - margin.left - margin.right;
+  const height = 550 - margin.top - margin.bottom;
+  const kdeHeight = 40;
+  const kdeWidth = 40;
+
+  const svg = d3.select("body")
+    .append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+    .attr("transform", `translate(${margin.left},${margin.top})`);
+
+  //margins
+  const xExtent = d3.extent(data, d => d.culmen_length);
+  const yExtent = d3.extent(data, d => d.culmen_depth);
+  const xPadding = (xExtent[1] - xExtent[0]) * 0.05;
+  const yPadding = (yExtent[1] - yExtent[0]) * 0.05;
+
+  const x = d3.scaleLinear()
+    .domain([xExtent[0] - xPadding, xExtent[1] + xPadding])
+    .nice()
+    .range([0, width]);
+
+  const y = d3.scaleLinear()
+    .domain([yExtent[0] - yPadding, yExtent[1] + yPadding])
+    .nice()
+    .range([height, 0]);
+
+  const color = d3.scaleOrdinal()
+    .domain(['Adelie', 'Gentoo', 'Chinstrap'])
+    .range(['#e74c3c', '#3498db', '#2ecc71']);
+
+  const size = d3.scaleLinear()
+    .domain(d3.extent(data, d => d.mass))
+    .range([20, 200]);
+
+  
+  const customFemale = {
+    draw: function(context, size) {
+      size = Math.sqrt(size / Math.PI);
+      const s2 = Math.sqrt(2);
+      context.arc(0, 0, size, 0, Math.PI * 2);
+      context.moveTo(0, size);
+      context.lineTo(0, s2 * 2 * size);
+      context.moveTo(-(s2 - 1) * 2 * size, 2 * size);
+      context.lineTo((s2 - 1) * 2 * size, 2 * size);
+    }
+  };
+
+  const customMale = {
+    draw: function(context, size) {
+      size = Math.sqrt(size / Math.PI);
+      const s2 = Math.sqrt(2);
+      context.arc(0, 0, size, 0, Math.PI * 2);
+      context.moveTo(s2 * size / 2, -s2 * size / 2);
+      context.lineTo(2 * size, -2 * size);
+      context.moveTo(2 * size, -2 * size);
+      context.lineTo(size, -2 * size);
+      context.moveTo(2 * size, -2 * size);
+      context.lineTo(2 * size, -size);
+    }
+  };
+
+  const shape = d3.scaleOrdinal()
+    .domain(['male', 'female'])
+    .range([customMale, customFemale]);
+
+  // plot area
+  svg.append("defs").append("clipPath")
+    .attr("id", "clip")
+    .append("rect")
+    .attr("width", width)
+    .attr("height", height);
+
+  const plotGroup = svg.append("g")
+    .attr("clip-path", "url(#clip)");
+
+  //points
+  plotGroup.selectAll(".penguin")
+    .data(data)
+    .join("path")
+    .attr("class", d => `penguin ${d.species} ${d.sex}`)
+    .attr("transform", d => `translate(${x(d.culmen_length)},${y(d.culmen_depth)})`)
+    .attr("d", d3.symbol().type(d => shape(d.sex)).size(d => size(d.mass)))
+    .attr("fill", d => color(d.species))
+    .attr("fill-opacity", 0.7)
+    .attr("stroke", "#333")
+    .attr("stroke-width", 0.6);
+
+  //regression
+  function linearFit(data) {
+    const n = data.length;
+    const sumX = d3.sum(data, d => d.culmen_length);
+    const sumY = d3.sum(data, d => d.culmen_depth);
+    const sumXY = d3.sum(data, d => d.culmen_length * d.culmen_depth);
+    const sumX2 = d3.sum(data, d => d.culmen_length * d.culmen_length);
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+    return { slope, intercept };
+  }
+
+  const fitAll = linearFit(data);
+  const xDomain = x.domain();
+  plotGroup.append("line")
+    .attr("class", "regression-line all")
+    .attr("x1", x(xDomain[0]))
+    .attr("y1", y(fitAll.slope * xDomain[0] + fitAll.intercept))
+    .attr("x2", x(xDomain[1]))
+    .attr("y2", y(fitAll.slope * xDomain[1] + fitAll.intercept))
+    .attr("stroke", "#444")
+    .attr("stroke-width", 2)
+    .attr("stroke-dasharray", "5,5");
+
+  const speciesList = [...new Set(data.map(d => d.species))];
+  speciesList.forEach(sp => {
+    const spData = data.filter(d => d.species === sp);
+    const fit = linearFit(spData);
+    plotGroup.append("line")
+      .attr("class", `regression-line ${sp}`)
+      .attr("x1", x(xDomain[0]))
+      .attr("y1", y(fit.slope * xDomain[0] + fit.intercept))
+      .attr("x2", x(xDomain[1]))
+      .attr("y2", y(fit.slope * xDomain[1] + fit.intercept))
+      .attr("stroke", color(sp))
+      .attr("stroke-width", 2);
+  });
+
+  //axes
+  svg.append("g")
+    .attr("transform", `translate(0,${height})`)
+    .call(d3.axisBottom(x));
+  svg.append("g").call(d3.axisLeft(y));
+  svg.append("text")
+    .attr("x", width / 2)
+    .attr("y", height + 45)
+    .attr("text-anchor", "middle")
+    .text("Culmen length (mm)");
+  svg.append("text")
+    .attr("transform", "rotate(-90)")
+    .attr("x", -height / 2)
+    .attr("y", -65)
+    .attr("text-anchor", "middle")
+    .text("Culmen depth (mm)");
+
+  //legends
+  const sexesList = ['male', 'female'];
+  const sexLegend = svg.append("g")
+    .attr("class", "legend sex")
+    .attr("transform", `translate(${width + kdeWidth + 20}, ${speciesList.length * 20 + 40})`);
+
+  sexesList.forEach((s, i) => {
+  const yPos = i * 25;
+  const legendItem = sexLegend.append("g")
+    .attr("class", `legend-item ${s}`)
+    .attr("transform", `translate(0,${yPos})`)
+    .style("cursor", "pointer")
+    .on("click", function() {
+      if (hiddenSexes.has(s)) {
+        hiddenSexes.delete(s);
+        d3.select(this).style("opacity", 1);
+      } else {
+        hiddenSexes.add(s);
+        d3.select(this).style("opacity", 0.3);
+      }
+      updateVisibility();
+    });
+  legendItem.append("path")
+
+  legendItem.append("text").attr("x", 18).attr("y", 5).text(s);
+
+  legendItem.append("path")
+    .attr("transform", "translate(5, 0)")
+    .attr("d", d3.symbol().type(shape(s)).size(100))
+    .attr("fill", "#555")
+    .attr("stroke", "#333")
+    .attr("stroke-width", 0.6);
+});
+
+  const speciesLegend = svg.append("g")
+    .attr("class", "legend species")
+    .attr("transform", `translate(${width + kdeWidth + 20},0)`);
+
+  const hiddenSpecies = new Set();
+  const hiddenSexes = new Set();
+
+  function updateVisibility() {
+    svg.selectAll(".penguin").each(function() {
+      const d = d3.select(this).datum();
+      const shouldHide = hiddenSpecies.has(d.species) || hiddenSexes.has(d.sex);
+      d3.select(this).style("opacity", shouldHide ? 0.1 : 1);
+    });
+  }
+
+  speciesList.forEach((sp, i) => {
+    const yPos = i * 20;
+    const legendItem = speciesLegend.append("g")
+      .attr("class", `legend-item ${sp}`)
+      .attr("transform", `translate(0,${yPos})`)
+      .style("cursor", "pointer")
+      .on("click", function() {
+        if (hiddenSpecies.has(sp)) {
+          hiddenSpecies.delete(sp);
+          d3.select(this).style("opacity", 1);
+          d3.selectAll(`.kde-line.${sp}`).style("opacity", 1);
+          d3.selectAll(`.regression-line.${sp}`).style("opacity", 1);
+        } else {
+          hiddenSpecies.add(sp);
+          d3.select(this).style("opacity", 0.3);
+          d3.selectAll(`.kde-line.${sp}`).style("opacity", 0.1);
+          d3.selectAll(`.regression-line.${sp}`).style("opacity", 0.1);
+        }
+        updateVisibility();
+      });
+    legendItem.append("circle").attr("r", 5).attr("fill", color(sp));
+    legendItem.append("text").attr("x", 12).attr("y", 4).text(sp);
+  });
+
+  
+
+  //kde
+  function kernelEpanechnikov(k) {
+    return function(v) {
+      return Math.abs(v /= k) <= 1 ? 0.75 * (1 - v * v) / k : 0;
+    };
+  }
+
+  function kernelDensityEstimator(kernel, X) {
+    return function(V) {
+      return X.map(x => [x, d3.mean(V, v => kernel(x - v))]);
+    };
+  }
+
+  //kde up
+  const kdeX = kernelDensityEstimator(
+    kernelEpanechnikov(1.2),
+    d3.range(x.domain()[0], x.domain()[1], (x.domain()[1] - x.domain()[0]) / 60)
+  );
+
+  const kdeGroupX = svg.append("g")
+    .attr("transform", `translate(0, ${-kdeHeight - 10})`);
+
+  //density for scaling
+  const allDensitiesX = [
+    kdeX(data.map(d => d.culmen_length)),
+    ...speciesList.map(sp => kdeX(data.filter(d => d.species === sp).map(d => d.culmen_length)))
+  ];
+  const maxDensityX = d3.max(allDensitiesX.flat(), d => d[1]);
+  const yKDE = d3.scaleLinear().domain([0, maxDensityX]).range([kdeHeight, 0]);
+
+  //distribution
+  const densityAll = kdeX(data.map(d => d.culmen_length));
+  kdeGroupX.append("path")
+    .attr("class", "kde-line all")
+    .datum(densityAll)
+    .attr("fill", "none")
+    .attr("stroke", "#444")
+    .attr("stroke-width", 1.5)
+    .attr("d", d3.line()
+      .curve(d3.curveBasis)
+      .x(d => x(d[0]))
+      .y(d => yKDE(d[1])));
+
+  //species
+  speciesList.forEach(sp => {
+    const density = kdeX(data.filter(d => d.species === sp).map(d => d.culmen_length));
+    kdeGroupX.append("path")
+      .attr("class", `kde-line ${sp}`)
+      .datum(density)
+      .attr("fill", "none")
+      .attr("stroke", color(sp))
+      .attr("stroke-width", 1.5)
+      .attr("d", d3.line()
+        .curve(d3.curveBasis)
+        .x(d => x(d[0]))
+        .y(d => yKDE(d[1])));
+  });
+
+  // right kde
+  const kdeY = kernelDensityEstimator(
+    kernelEpanechnikov(0.8),
+    d3.range(y.domain()[0], y.domain()[1], (y.domain()[1] - y.domain()[0]) / 60)
+  );
+
+  //scaling
+  const allDensitiesY = [
+    kdeY(data.map(d => d.culmen_depth)),
+    ...speciesList.map(sp => kdeY(data.filter(d => d.species === sp).map(d => d.culmen_depth)))
+  ];
+  const maxDensityY = d3.max(allDensitiesY.flat(), d => d[1]);
+  const xKDE = d3.scaleLinear().domain([0, maxDensityY]).range([0, kdeWidth]);
+
+  const kdeGroupY = svg.append("g")
+    .attr("transform", `translate(${width + 10},0)`);
+
+  const densityAllY = kdeY(data.map(d => d.culmen_depth));
+  kdeGroupY.append("path")
+    .attr("class", "kde-line all")
+    .datum(densityAllY)
+    .attr("fill", "none")
+    .attr("stroke", "#444")
+    .attr("stroke-width", 1.5)
+    .attr("d", d3.line()
+      .curve(d3.curveBasis)
+      .x(d => xKDE(d[1]))
+      .y(d => y(d[0])));
+
+  speciesList.forEach(sp => {
+    const density = kdeY(data.filter(d => d.species === sp).map(d => d.culmen_depth));
+    kdeGroupY.append("path")
+      .attr("class", `kde-line ${sp}`)
+      .datum(density)
+      .attr("fill", "none")
+      .attr("stroke", color(sp))
+      .attr("stroke-width", 1.5)
+      .attr("d", d3.line()
+        .curve(d3.curveBasis)
+        .x(d => xKDE(d[1]))
+        .y(d => y(d[0])));
+  });
+});
+</script>
+</body>
+</html>
