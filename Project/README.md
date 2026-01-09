@@ -1,4 +1,4 @@
-# FIDE Chess Ratings — Interactive Visualizations
+# FIDE Chess Ratings - Interactive Visualizations
 
 An interactive exploration of the FIDE chess ratings dataset, answering questions across three categories: global insights, subset analysis, and cross-subset comparisons.
 
@@ -6,9 +6,9 @@ An interactive exploration of the FIDE chess ratings dataset, answering question
 
 This project presents three interactive visualizations:
 
-1. **Birth Year vs Peak Rating** — Explores the relationship between player birth year and peak rating achievement
-2. **Gender Rating Gap by Country** — Compares how the gender rating gap varies across countries and over time
-3. **Gender Representation Timeline** — Tracks gender representation evolution across different rating thresholds
+1. **Birth Year vs Peak Rating** - Explores the relationship between player birth year and peak rating achievement
+2. **Gender Rating Gap by Country** - Compares how the gender rating gap varies across countries and over time
+3. **Gender Representation Timeline** - Tracks gender representation evolution across different rating thresholds
 
 ## 📁 Project Structure
 
@@ -35,9 +35,9 @@ Implementation/
 - **Local HTTP Server**: Required to serve the files (due to browser security restrictions on local file access)
 
 ### Libraries (Included)
-- **D3.js v7.8.5** — Data visualization library (included in `vendor/` folder)
-- **TopoJSON** — Geographic data library (loaded from CDN in Visualization 2)
-- **World Atlas** — World map data (loaded from CDN in Visualization 2)
+- **D3.js v7.8.5** - Data visualization library (included in `vendor/` folder)
+- **TopoJSON** - Geographic data library (loaded from CDN in Visualization 2)
+- **World Atlas** - World map data (loaded from CDN in Visualization 2)
 
 ## Running the Visualization
 
@@ -86,4 +86,5 @@ The visualizations require the data files in the `data/` folder
 
 **S. M. Rakib Hasan**  
 Information Visualization Project  
-Grenoble INP — Fall 2025
+
+Grenoble INP - Fall 2025
